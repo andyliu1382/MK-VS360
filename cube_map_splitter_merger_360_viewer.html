@@ -1,0 +1,1697 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>3x2 Cube Map 雙向處理與 360° 預覽工具</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        body {
+            font-family: 'Inter', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+            background-color: #f3f4f6;
+        }
+        .file-upload-label {
+            cursor: pointer;
+            transition: all 0.3s ease;
+        }
+        .file-upload-label:hover {
+            background-color: #e5e7eb;
+            border-color: #3b82f6;
+        }
+        .drag-over {
+            background-color: #dbeafe !important;
+            border-color: #2563eb !important;
+            border-style: solid !important;
+        }
+        /* Loading Spinner */
+        .loader {
+            border: 4px solid #f3f3f3;
+            border-top: 4px solid #3b82f6;
+            border-radius: 50%;
+            width: 24px;
+            height: 24px;
+            animation: spin 1s linear infinite;
+            display: inline-block;
+            vertical-align: middle;
+            margin-right: 8px;
+        }
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+    </style>
+    
+    <!-- 設定 ImportMap 載入 Three.js 與相關套件 -->
+    <script type="importmap">
+    {
+        "imports": {
+            "three": "https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js",
+            "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.160.0/examples/jsm/"
+        }
+    }
+    </script>
+</head>
+<body class="min-h-screen p-4 md:p-8 text-gray-800">
+
+    <div class="max-w-6xl mx-auto bg-white p-6 md:p-8 rounded-xl shadow-xl">
+        <h1 class="text-3xl font-extrabold mb-2 text-center text-blue-600 tracking-tight">Cube Map 處理工具</h1>
+        <p class="text-center text-gray-500 mb-6">支援 Facebook / YouTube 3x2 格式，相容 JPG, PNG, EXR 轉換與 3D 預覽</p>
+
+        <!-- 頁籤切換區 -->
+        <div class="flex flex-wrap justify-center border-b mb-6 gap-1 md:gap-0">
+            <button id="tab-split" class="px-4 md:px-6 py-3 border-b-2 border-blue-600 font-bold text-blue-600 hover:bg-blue-50 transition-colors">
+                拆解 Cube Map (Split)
+            </button>
+            <button id="tab-merge" class="px-4 md:px-6 py-3 border-b-2 border-transparent text-gray-500 font-bold hover:bg-gray-50 hover:text-gray-700 transition-colors">
+                合成 Cube Map (Merge)
+            </button>
+            <button id="tab-equirect" class="px-4 md:px-6 py-3 border-b-2 border-transparent text-gray-500 font-bold hover:bg-gray-50 hover:text-gray-700 transition-colors">
+                全景圖轉換 (Equirectangular 雙向)
+            </button>
+            <button id="tab-viewer" class="px-4 md:px-6 py-3 border-b-2 border-transparent text-gray-500 font-bold hover:bg-gray-50 hover:text-gray-700 transition-colors">
+                360° 互動預覽 (360° Viewer)
+            </button>
+        </div>
+
+        <!-- ========================================== -->
+        <!-- 拆解模式 (Split View) -->
+        <!-- ========================================== -->
+        <div id="view-split">
+            <!-- 拆解上傳區 -->
+            <div id="split-dropzone" class="flex flex-col items-center justify-center border-2 border-dashed border-gray-300 rounded-xl p-10 mb-6 bg-gray-50 file-upload-label">
+                <input type="file" id="split-upload" accept="image/jpeg, image/png, .exr" class="hidden">
+                <label for="split-upload" class="flex flex-col items-center justify-center w-full h-full cursor-pointer">
+                    <svg class="w-12 h-12 text-blue-500 mb-3" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12"></path></svg>
+                    <p class="text-lg text-gray-700 font-bold">點擊或拖曳上傳 3x2 Cube Map</p>
+                    <p class="text-sm text-gray-500 mt-2">支援 JPG, PNG, EXR</p>
+                </label>
+            </div>
+
+            <!-- 拆解預覽區 -->
+            <div id="split-preview-container" class="hidden flex flex-col items-center bg-gray-50 p-6 rounded-lg border mb-6">
+                <h3 class="text-lg font-bold mb-4 w-full text-left text-gray-700 border-b pb-2">原始圖片預覽</h3>
+                <div class="relative w-full max-w-2xl flex justify-center bg-checkered rounded">
+                    <!-- 用於顯示預覽的 Canvas (將 EXR Tone-map 為 SDR 顯示) -->
+                    <canvas id="split-original-canvas" class="max-w-full h-auto rounded shadow-sm border border-gray-200"></canvas>
+                </div>
+                
+                <div class="flex flex-col md:flex-row gap-4 mt-6 w-full justify-center items-center">
+                    <div class="flex items-center gap-2">
+                        <label class="font-bold text-gray-700">輸出格式:</label>
+                        <select id="split-output-format" class="border p-2 rounded-lg bg-white shadow-sm outline-none focus:ring-2 focus:ring-blue-500">
+                            <option value="jpg">JPG (8-bit)</option>
+                            <option value="png">PNG (8-bit)</option>
+                            <option value="exr">EXR (32-bit Float)</option>
+                        </select>
+                    </div>
+                    <button id="split-btn" class="bg-blue-600 hover:bg-blue-700 text-white font-bold py-2 px-8 rounded-lg shadow-md transition-colors flex items-center">
+                        <span id="split-btn-text">開始拆解成 6 張圖</span>
+                    </button>
+                </div>
+            </div>
+
+            <!-- 拆解結果區 -->
+            <div id="split-results-container" class="hidden">
+                <div class="flex justify-between items-end mb-4 border-b pb-2">
+                    <h2 class="text-2xl font-bold text-gray-800">拆解結果</h2>
+                    <button id="download-all-btn" class="bg-green-600 hover:bg-green-700 text-white font-bold py-2 px-6 rounded-lg shadow-md transition-colors flex items-center gap-2">
+                        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"></path></svg>
+                        下載全部 (ZIP)
+                    </button>
+                </div>
+                <div class="grid grid-cols-2 md:grid-cols-3 gap-6" id="faces-grid">
+                    <!-- JavaScript 將動態插入結果 -->
+                </div>
+            </div>
+        </div>
+
+        <!-- ========================================== -->
+        <!-- 合成模式 (Merge View) -->
+        <!-- ========================================== -->
+        <div id="view-merge" class="hidden">
+            <div class="mb-4 text-gray-600 bg-blue-50 p-4 rounded-lg border border-blue-100 flex items-start gap-3">
+                <svg class="w-6 h-6 text-blue-500 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
+                <p class="text-sm">請將 6 張正方形圖片拖曳或上傳至對應的格子中。您也可以一次選擇 6 張圖片並拖曳到畫面中，系統將會依序自動填入。<br>若混用 EXR 與其他格式，系統將自動升頻處理以保留 HDR 細節。</p>
+            </div>
+
+            <!-- 3x2 Grid for Merging -->
+            <div class="grid grid-cols-3 grid-rows-2 gap-4 max-w-3xl mx-auto mb-8 bg-gray-200 p-4 rounded-xl">
+                <!-- 產生 6 個上傳區塊 -->
+                <script>
+                    const mergeFaceLabels = [
+                        "Right (+X)", "Left (-X)", "Up (+Y)",
+                        "Down (-Y)", "Front (+Z)", "Back (-Z)"
+                    ];
+                    for(let i=0; i<6; i++) {
+                        document.write(`
+                            <div class="merge-slot bg-white border-2 border-dashed border-gray-300 rounded-lg aspect-square flex flex-col items-center justify-center relative file-upload-label overflow-hidden group" data-index="${i}">
+                                <input type="file" id="merge-upload-${i}" accept="image/jpeg, image/png, .exr" class="hidden merge-file-input">
+                                <div class="absolute inset-0 flex flex-col items-center justify-center z-10 pointer-events-none group-hover:bg-white/50 transition-colors">
+                                    <span class="text-gray-400 font-bold text-2xl mb-1">+</span>
+                                    <span class="text-xs text-gray-500 font-semibold bg-white/80 px-2 py-1 rounded">${mergeFaceLabels[i]}</span>
+                                </div>
+                                <canvas id="merge-canvas-${i}" class="absolute inset-0 w-full h-full object-cover hidden z-0"></canvas>
+                                <button class="clear-slot-btn absolute top-1 right-1 bg-red-500 text-white rounded-full w-6 h-6 flex items-center justify-center text-xs hidden z-20 hover:bg-red-600 shadow" data-index="${i}">✕</button>
+                            </div>
+                        `);
+                    }
+                </script>
+            </div>
+
+            <div class="flex flex-col md:flex-row gap-4 w-full justify-center items-center border-t pt-6">
+                <div class="flex items-center gap-2">
+                    <label class="font-bold text-gray-700">合成輸出格式:</label>
+                    <select id="merge-output-format" class="border p-2 rounded-lg bg-white shadow-sm outline-none focus:ring-2 focus:ring-blue-500">
+                        <option value="jpg">JPG (8-bit)</option>
+                        <option value="png">PNG (8-bit)</option>
+                        <option value="exr">EXR (32-bit Float)</option>
+                    </select>
+                </div>
+                <button id="merge-btn" class="bg-purple-600 hover:bg-purple-700 text-white font-bold py-3 px-10 rounded-lg shadow-lg transition-all disabled:opacity-50 disabled:cursor-not-allowed transform hover:-translate-y-0.5" disabled>
+                    <span id="merge-btn-text">開始合成 Cube Map</span>
+                </button>
+            </div>
+        </div>
+
+        <!-- ========================================== -->
+        <!-- 轉換模式 (Equirectangular View) -->
+        <!-- ========================================== -->
+        <div id="view-equirect" class="hidden">
+            <!-- 雙向模式選擇器 -->
+            <div class="flex justify-center mb-6">
+                <div class="inline-flex rounded-lg border border-gray-300 p-1 bg-gray-100">
+                    <button id="btn-cube-to-equi" class="px-4 py-2 rounded-md font-bold text-sm bg-white text-blue-600 shadow-sm transition-all focus:outline-none">
+                        Cube Map ➔ 全景圖
+                    </button>
+                    <button id="btn-equi-to-cube" class="px-4 py-2 rounded-md font-bold text-sm text-gray-500 hover:text-gray-700 transition-all focus:outline-none">
+                        全景圖 ➔ Cube Map
+                    </button>
+                </div>
+            </div>
+
+            <!-- 轉換上傳區 -->
+            <div id="equi-dropzone" class="flex flex-col items-center justify-center border-2 border-dashed border-gray-300 rounded-xl p-10 mb-6 bg-gray-50 file-upload-label">
+                <input type="file" id="equi-upload" accept="image/jpeg, image/png, .exr" class="hidden">
+                <label for="equi-upload" class="flex flex-col items-center justify-center w-full h-full cursor-pointer">
+                    <svg class="w-12 h-12 text-blue-500 mb-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12"></path></svg>
+                    <p id="equi-dropzone-title" class="text-lg text-gray-700 font-bold">點擊或拖曳上傳 3x2 Cube Map</p>
+                    <p id="equi-dropzone-subtitle" class="text-sm text-gray-500 mt-2">將轉換為 2:1 全景圖 (支援 JPG, PNG, EXR)</p>
+                </label>
+            </div>
+
+            <!-- 轉換預覽與設定區 -->
+            <div id="equi-preview-container" class="hidden flex flex-col items-center bg-gray-50 p-6 rounded-lg border mb-6">
+                <h3 id="equi-preview-title" class="text-lg font-bold mb-4 w-full text-left text-gray-700 border-b pb-2">原始 Cube Map 預覽</h3>
+                <div class="relative w-full max-w-2xl flex justify-center bg-checkered rounded mb-6">
+                    <canvas id="equi-original-canvas" class="max-w-full h-auto rounded shadow-sm border border-gray-200"></canvas>
+                </div>
+                
+                <div class="flex flex-col md:flex-row gap-6 w-full justify-center items-center border-t pt-6">
+                    <!-- 全景圖模式解析度 -->
+                    <div id="equi-res-container" class="flex items-center gap-2">
+                        <label class="font-bold text-gray-700">全景圖解析度:</label>
+                        <select id="equi-res" class="border p-2 rounded-lg bg-white shadow-sm outline-none focus:ring-2 focus:ring-blue-500">
+                            <option value="2048">2048 x 1024 (快速)</option>
+                            <option value="4096" selected>4096 x 2048 (標準)</option>
+                            <option value="8192">8192 x 4096 (高畫質)</option>
+                        </select>
+                    </div>
+                    <!-- Cube Map 模式解析度 -->
+                    <div id="cube-res-container" class="flex items-center gap-2 hidden">
+                        <label class="font-bold text-gray-700">單面解析度:</label>
+                        <select id="cube-face-res" class="border p-2 rounded-lg bg-white shadow-sm outline-none focus:ring-2 focus:ring-blue-500">
+                            <option value="512">512 x 512 (快速)</option>
+                            <option value="1024" selected>1024 x 1024 (標準)</option>
+                            <option value="2048">2048 x 2048 (高解析度)</option>
+                            <option value="4096">4096 x 4096 (極致畫質)</option>
+                        </select>
+                    </div>
+                    <div class="flex items-center gap-2">
+                        <label class="font-bold text-gray-700">輸出格式:</label>
+                        <select id="equi-output-format" class="border p-2 rounded-lg bg-white shadow-sm outline-none focus:ring-2 focus:ring-blue-500">
+                            <option value="jpg">JPG (8-bit)</option>
+                            <option value="png">PNG (8-bit)</option>
+                            <option value="exr">EXR (32-bit Float)</option>
+                        </select>
+                    </div>
+                    <button id="equi-btn" class="bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-2 px-8 rounded-lg shadow-md transition-colors flex items-center">
+                        <span id="equi-btn-text">開始轉換全景圖</span>
+                    </button>
+                </div>
+            </div>
+
+            <!-- 轉換結果區 -->
+            <div id="equi-results-container" class="hidden flex flex-col items-center">
+                <div class="w-full flex justify-between items-end mb-4 border-b pb-2">
+                    <h2 id="equi-results-title" class="text-2xl font-bold text-gray-800">轉換結果 (Equirectangular)</h2>
+                    <button id="equi-download-btn" class="bg-green-600 hover:bg-green-700 text-white font-bold py-2 px-6 rounded-lg shadow-md transition-colors flex items-center gap-2">
+                        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"></path></svg>
+                        下載圖片
+                    </button>
+                </div>
+                <div class="relative w-full max-w-4xl flex justify-center bg-checkered rounded">
+                    <canvas id="equi-result-canvas" class="max-w-full h-auto rounded shadow-md border border-gray-300"></canvas>
+                </div>
+            </div>
+        </div>
+
+        <!-- ========================================== -->
+        <!-- 360° 預覽模式 (360° Viewer View) -->
+        <!-- ========================================== -->
+        <div id="view-viewer" class="hidden">
+            <!-- 預覽上傳區 -->
+            <div id="viewer-dropzone" class="flex flex-col items-center justify-center border-2 border-dashed border-gray-300 rounded-xl p-10 mb-6 bg-gray-50 file-upload-label">
+                <input type="file" id="viewer-upload" accept="image/jpeg, image/png, .exr" class="hidden">
+                <label for="viewer-upload" class="flex flex-col items-center justify-center w-full h-full cursor-pointer">
+                    <svg class="w-12 h-12 text-blue-500 mb-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"></path><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"></path></svg>
+                    <p class="text-lg text-gray-700 font-bold">點擊或拖曳上傳 3x2 Cube Map 或 2:1 全景圖進行 360° 互動預覽</p>
+                    <p class="text-sm text-gray-500 mt-2">自動偵測格式。支援 JPG, PNG, EXR (自動套用 ACES Tone-mapping)</p>
+                </label>
+            </div>
+
+            <!-- 預覽視窗區 -->
+            <div id="viewer-container" class="hidden flex flex-col items-center bg-gray-50 p-6 rounded-lg border mb-6">
+                <div class="w-full flex flex-col sm:flex-row justify-between items-center mb-4 border-b pb-2 gap-4">
+                    <h2 class="text-2xl font-bold text-gray-800">360° 互動預覽</h2>
+                    <div class="flex gap-2 items-center">
+                        <button id="viewer-btn-rotate" class="bg-gray-200 hover:bg-gray-300 text-gray-700 font-bold py-1.5 px-3 rounded text-sm transition-colors flex items-center gap-1">
+                            🔄 自動旋轉: 關
+                        </button>
+                        <button id="viewer-btn-reset" class="bg-gray-200 hover:bg-gray-300 text-gray-700 font-bold py-1.5 px-3 rounded text-sm transition-colors">
+                            重設視角
+                        </button>
+                    </div>
+                </div>
+                <!-- 3D 畫布容器 -->
+                <div id="canvas3d-parent" class="w-full aspect-[16/9] max-h-[600px] bg-black rounded-lg overflow-hidden relative shadow-inner">
+                    <!-- Three.js Canvas 將被動態塞入此處 -->
+                </div>
+                <p class="text-xs text-gray-500 mt-2">提示：按住滑鼠左鍵拖曳可任意旋轉視角，滾動滾輪可控制視野縮放。支援 EXR 高動態範圍渲染 (自動 Tone Map)。</p>
+            </div>
+        </div>
+    </div>
+
+    <!-- 隱藏的通用提示訊息 -->
+    <div id="toast" class="fixed bottom-4 right-4 bg-gray-800 text-white px-6 py-3 rounded-lg shadow-xl transform transition-transform duration-300 translate-y-20 opacity-0 z-50">
+        訊息內容
+    </div>
+
+    <!-- 引入 JSZip 庫 -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
+
+    <!-- 主要邏輯 -->
+    <script type="module">
+        import * as THREE from 'three';
+        import { EXRLoader } from 'three/addons/loaders/EXRLoader.js';
+        import { EXRExporter } from 'three/addons/exporters/EXRExporter.js';
+        import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
+
+        // --- 全域狀態與常數 ---
+        const FACE_NAMES = ["Right", "Left", "Up", "Down", "Front", "Back"];
+        const FACE_LABELS = ["Right (+X)", "Left (-X)", "Up (+Y)", "Down (-Y)", "Front (+Z)", "Back (-Z)"];
+
+        const state = {
+            mode: 'split',
+            splitInput: {
+                file: null,
+                fileName: '',
+                type: '', // 'exr', 'png', 'jpg'
+                width: 0,
+                height: 0,
+                floatData: null, // Float32Array (如果是 EXR)
+                imageElement: null // HTMLImageElement (如果是 SDR)
+            },
+            splitOutputs: [], // 存放拆解後的資料 { blob, url, filename }
+            
+            mergeInputs: Array(6).fill(null), // 存放 6 個面的資料 { file, type, width, height, floatData, imageElement }
+
+            equiDirection: 'cube-to-equi', // 'cube-to-equi' 或 'equi-to-cube'
+            equiInput: {
+                file: null,
+                fileName: '',
+                type: '',
+                width: 0,
+                height: 0,
+                floatData: null,
+                imageElement: null
+            },
+            equiOutputBlob: null,
+            equiOutputFilename: '',
+
+            viewerInput: {
+                file: null,
+                fileName: '',
+                type: '',
+                width: 0,
+                height: 0,
+                layout: '', // 'cubemap' 或 'equirectangular'
+                floatData: null,
+                imageElement: null
+            }
+        };
+
+        // 3D 預覽器管理狀態
+        const activeViewer = {
+            renderer: null,
+            scene: null,
+            camera: null,
+            controls: null,
+            animationFrameId: null,
+            skyboxMesh: null,
+            textures: [],
+            resizeObserver: null,
+            isRotating: false
+        };
+
+        // --- DOM 元素獲取 ---
+        const tabSplit = document.getElementById('tab-split');
+        const tabMerge = document.getElementById('tab-merge');
+        const tabEquirect = document.getElementById('tab-equirect');
+        const tabViewer = document.getElementById('tab-viewer');
+        
+        const viewSplit = document.getElementById('view-split');
+        const viewMerge = document.getElementById('view-merge');
+        const viewEquirect = document.getElementById('view-equirect');
+        const viewViewer = document.getElementById('view-viewer');
+        
+        const splitUpload = document.getElementById('split-upload');
+        const splitDropzone = document.getElementById('split-dropzone');
+        const splitPreviewContainer = document.getElementById('split-preview-container');
+        const splitOriginalCanvas = document.getElementById('split-original-canvas');
+        const splitBtn = document.getElementById('split-btn');
+        const splitBtnText = document.getElementById('split-btn-text');
+        const splitOutputFormat = document.getElementById('split-output-format');
+        const splitResultsContainer = document.getElementById('split-results-container');
+        const facesGrid = document.getElementById('faces-grid');
+        const downloadAllBtn = document.getElementById('download-all-btn');
+
+        const mergeSlots = document.querySelectorAll('.merge-slot');
+        const mergeInputs = document.querySelectorAll('.merge-file-input');
+        const clearSlotBtns = document.querySelectorAll('.clear-slot-btn');
+        const mergeBtn = document.getElementById('merge-btn');
+        const mergeBtnText = document.getElementById('merge-btn-text');
+        const mergeOutputFormat = document.getElementById('merge-output-format');
+        
+        // 雙向轉換模式 DOM
+        const btnCubeToEqui = document.getElementById('btn-cube-to-equi');
+        const btnEquiToCube = document.getElementById('btn-equi-to-cube');
+        const equiUpload = document.getElementById('equi-upload');
+        const equiDropzone = document.getElementById('equi-dropzone');
+        const equiDropzoneTitle = document.getElementById('equi-dropzone-title');
+        const equiDropzoneSubtitle = document.getElementById('equi-dropzone-subtitle');
+        const equiPreviewContainer = document.getElementById('equi-preview-container');
+        const equiPreviewTitle = document.getElementById('equi-preview-title');
+        const equiOriginalCanvas = document.getElementById('equi-original-canvas');
+        const equiBtn = document.getElementById('equi-btn');
+        const equiBtnText = document.getElementById('equi-btn-text');
+        const equiResContainer = document.getElementById('equi-res-container');
+        const equiRes = document.getElementById('equi-res');
+        const cubeResContainer = document.getElementById('cube-res-container');
+        const cubeFaceRes = document.getElementById('cube-face-res');
+        const equiOutputFormat = document.getElementById('equi-output-format');
+        const equiResultsContainer = document.getElementById('equi-results-container');
+        const equiResultsTitle = document.getElementById('equi-results-title');
+        const equiResultCanvas = document.getElementById('equi-result-canvas');
+        const equiDownloadBtn = document.getElementById('equi-download-btn');
+
+        const viewerUpload = document.getElementById('viewer-upload');
+        const viewerDropzone = document.getElementById('viewer-dropzone');
+        const viewerContainer = document.getElementById('viewer-container');
+
+        const toastEl = document.getElementById('toast');
+
+        // --- 工具函數：UI 與 提示 ---
+        function showToast(message, isError = false) {
+            toastEl.textContent = message;
+            toastEl.className = `fixed bottom-4 right-4 px-6 py-3 rounded-lg shadow-xl transform transition-all duration-300 z-50 ${isError ? 'bg-red-600 text-white' : 'bg-gray-800 text-white'}`;
+            toastEl.style.transform = 'translateY(0)';
+            toastEl.style.opacity = '1';
+            setTimeout(() => {
+                toastEl.style.transform = 'translateY(20px)';
+                toastEl.style.opacity = '0';
+            }, 3000);
+        }
+
+        function setButtonLoading(btn, textSpan, isLoading, defaultText) {
+            if(btn) btn.disabled = isLoading;
+            if(textSpan) {
+                if(isLoading) {
+                    textSpan.innerHTML = `<div class="loader"></div> 處理中...`;
+                } else {
+                    textSpan.innerHTML = defaultText;
+                }
+            }
+        }
+
+        // --- 核心工具：EXR 與 Float16 解析 ---
+        const exrLoader = new EXRLoader();
+        exrLoader.setDataType(THREE.FloatType); 
+
+        function decodeFloat16(binary) {
+            const exponent = (binary & 0x7C00) >> 10;
+            const fraction = binary & 0x03FF;
+            return (binary >> 15 ? -1 : 1) * (
+                exponent ?
+                (
+                    exponent === 0x1F ?
+                    (fraction ? NaN : Infinity) :
+                    Math.pow(2, exponent - 15) * (1 + fraction / 0x400)
+                ) :
+                6.103515625e-5 * (fraction / 0x400)
+            );
+        }
+
+        function normalizeToFloat32(data) {
+            if (data instanceof Float32Array) return data;
+            if (data instanceof Uint16Array) {
+                const floatData = new Float32Array(data.length);
+                for(let i=0; i<data.length; i++) floatData[i] = decodeFloat16(data[i]);
+                return floatData;
+            }
+            throw new Error("不支援的 EXR 資料格式");
+        }
+
+        function readFileAsArrayBuffer(file) {
+            return new Promise((resolve, reject) => {
+                const reader = new FileReader();
+                reader.onload = e => resolve(e.target.result);
+                reader.onerror = reject;
+                reader.readAsArrayBuffer(file);
+            });
+        }
+
+        function readFileAsImage(file) {
+            return new Promise((resolve, reject) => {
+                const url = URL.createObjectURL(file);
+                const img = new Image();
+                img.onload = () => {
+                    URL.revokeObjectURL(url);
+                    resolve(img);
+                };
+                img.onerror = reject;
+                img.src = url;
+            });
+        }
+
+        // 將 Float32Array (Linear HDR) 轉換為 ImageData (SDR 8-bit) 用於 Canvas 預覽
+        function float32ToImageData(floatData, width, height) {
+            const imgData = new ImageData(width, height);
+            for(let i = 0; i < floatData.length; i+=4) {
+                const r = floatData[i];
+                const g = floatData[i+1];
+                const b = floatData[i+2];
+                const a = floatData[i+3] !== undefined ? floatData[i+3] : 1.0;
+
+                const tmR = r / (r + 1);
+                const tmG = g / (g + 1);
+                const tmB = b / (b + 1);
+
+                imgData.data[i]   = Math.min(255, Math.max(0, Math.pow(tmR, 1/2.2) * 255));
+                imgData.data[i+1] = Math.min(255, Math.max(0, Math.pow(tmG, 1/2.2) * 255));
+                imgData.data[i+2] = Math.min(255, Math.max(0, Math.pow(tmB, 1/2.2) * 255));
+                imgData.data[i+3] = a * 255;
+            }
+            return imgData;
+        }
+
+        // 將 SDR Image 轉為 Float32Array (用於混合 EXR 處理時的升頻)
+        function imageToFloat32(img, width, height) {
+            const tempCanvas = document.createElement('canvas');
+            tempCanvas.width = width;
+            tempCanvas.height = height;
+            const ctx = tempCanvas.getContext('2d');
+            ctx.drawImage(img, 0, 0, width, height);
+            const imgData = ctx.getImageData(0, 0, width, height);
+            
+            const floatData = new Float32Array(width * height * 4);
+            for(let i=0; i<imgData.data.length; i+=4) {
+                floatData[i]   = Math.pow(imgData.data[i]/255, 2.2);
+                floatData[i+1] = Math.pow(imgData.data[i+1]/255, 2.2);
+                floatData[i+2] = Math.pow(imgData.data[i+2]/255, 2.2);
+                floatData[i+3] = imgData.data[i+3]/255;
+            }
+            return floatData;
+        }
+
+        function exportFloat32ToEXR(floatData, width, height) {
+            const tex = new THREE.DataTexture(floatData, width, height, THREE.RGBAFormat, THREE.FloatType);
+            tex.needsUpdate = true;
+            
+            const exporter = new EXRExporter();
+            try {
+                const exrBuffer = exporter.parse(tex); 
+                return exrBuffer;
+            } catch (err) {
+                console.warn("直接 Parse DataTexture 失敗，嘗試使用 WebGLRenderer 渲染後導出", err);
+                const renderer = new THREE.WebGLRenderer();
+                renderer.setSize(width, height);
+                const renderTarget = new THREE.WebGLRenderTarget(width, height, {
+                    type: THREE.FloatType,
+                    format: THREE.RGBAFormat
+                });
+                const scene = new THREE.Scene();
+                const camera = new THREE.OrthographicCamera(-width/2, width/2, height/2, -height/2, -1, 1);
+                const material = new THREE.MeshBasicMaterial({ map: tex });
+                const mesh = new THREE.Mesh(new THREE.PlaneGeometry(width, height), material);
+                scene.add(mesh);
+                
+                renderer.setRenderTarget(renderTarget);
+                renderer.render(scene, camera);
+                const exrBuffer = exporter.parse(renderer, renderTarget);
+                
+                renderer.dispose();
+                renderTarget.dispose();
+                material.dispose();
+                mesh.geometry.dispose();
+                
+                return exrBuffer;
+            }
+        }
+
+        // ==============================================================
+        // 模組與頁籤切換邏輯
+        // ==============================================================
+        function switchTab(activeTab, activeView, modeName) {
+            state.mode = modeName;
+            
+            // 重置所有頁籤外觀
+            const tabs = [tabSplit, tabMerge, tabEquirect, tabViewer];
+            const views = [viewSplit, viewMerge, viewEquirect, viewViewer];
+            
+            tabs.forEach(t => {
+                t.classList.remove('border-blue-600', 'text-blue-600');
+                t.classList.add('border-transparent', 'text-gray-500');
+            });
+            views.forEach(v => v.classList.add('hidden'));
+            
+            // 啟用目前頁籤
+            activeTab.classList.add('border-blue-600', 'text-blue-600');
+            activeTab.classList.remove('border-transparent', 'text-gray-500');
+            activeView.classList.remove('hidden');
+
+            // 處理 360° 預覽的渲染循環啟動與暫停
+            if (modeName === 'viewer') {
+                if (activeViewer.scene && !activeViewer.animationFrameId) {
+                    startViewerAnimation();
+                }
+            } else {
+                // 如果切換到其他頁籤，暫停動畫以節省 CPU/GPU 效能
+                if (activeViewer.animationFrameId) {
+                    cancelAnimationFrame(activeViewer.animationFrameId);
+                    activeViewer.animationFrameId = null;
+                }
+            }
+        }
+
+        tabSplit.addEventListener('click', () => switchTab(tabSplit, viewSplit, 'split'));
+        tabMerge.addEventListener('click', () => switchTab(tabMerge, viewMerge, 'merge'));
+        tabEquirect.addEventListener('click', () => switchTab(tabEquirect, viewEquirect, 'equirect'));
+        tabViewer.addEventListener('click', () => switchTab(tabViewer, viewViewer, 'viewer'));
+
+        // ==============================================================
+        // 拆解模式 (Split) 邏輯
+        // ==============================================================
+        async function loadSplitFile(file) {
+            if(!file) return;
+            
+            const ext = file.name.split('.').pop().toLowerCase();
+            state.splitInput.fileName = file.name.replace(`.${ext}`, '');
+            state.splitInput.type = ext === 'exr' ? 'exr' : 'sdr';
+            
+            try {
+                if (state.splitInput.type === 'exr') {
+                    splitOutputFormat.value = 'exr';
+                    const buffer = await readFileAsArrayBuffer(file);
+                    const exrData = exrLoader.parse(buffer);
+                    state.splitInput.width = exrData.width;
+                    state.splitInput.height = exrData.height;
+                    state.splitInput.floatData = normalizeToFloat32(exrData.data);
+                    state.splitInput.imageElement = null;
+                    
+                    const imgData = float32ToImageData(state.splitInput.floatData, exrData.width, exrData.height);
+                    splitOriginalCanvas.width = exrData.width;
+                    splitOriginalCanvas.height = exrData.height;
+                    splitOriginalCanvas.getContext('2d').putImageData(imgData, 0, 0);
+                    
+                } else {
+                    splitOutputFormat.value = ext === 'png' ? 'png' : 'jpg';
+                    const img = await readFileAsImage(file);
+                    state.splitInput.width = img.width;
+                    state.splitInput.height = img.height;
+                    state.splitInput.imageElement = img;
+                    state.splitInput.floatData = null;
+                    
+                    splitOriginalCanvas.width = img.width;
+                    splitOriginalCanvas.height = img.height;
+                    splitOriginalCanvas.getContext('2d').drawImage(img, 0, 0);
+                }
+                
+                const w = state.splitInput.width;
+                const h = state.splitInput.height;
+                if (w > 0 && h > 0) {
+                    const expectedH = Math.round((w / 3) * 2);
+                    if (Math.abs(h - expectedH) > 2) {
+                        showToast(`警告：圖片比例非嚴格 3:2 (目前為 ${w}x${h})，拆解將採用等比方格強制裁切。`, false);
+                    }
+                }
+
+                splitPreviewContainer.classList.remove('hidden');
+                splitResultsContainer.classList.add('hidden');
+                
+            } catch (err) {
+                console.error(err);
+                showToast("載入圖片失敗: " + err.message, true);
+            }
+        }
+
+        splitUpload.addEventListener('change', (e) => loadSplitFile(e.target.files[0]));
+        
+        splitDropzone.addEventListener('dragover', (e) => { e.preventDefault(); splitDropzone.classList.add('drag-over'); });
+        splitDropzone.addEventListener('dragleave', (e) => { e.preventDefault(); splitDropzone.classList.remove('drag-over'); });
+        splitDropzone.addEventListener('drop', (e) => {
+            e.preventDefault();
+            splitDropzone.classList.remove('drag-over');
+            if (e.dataTransfer.files && e.dataTransfer.files.length > 0) {
+                loadSplitFile(e.dataTransfer.files[0]);
+            }
+        });
+
+        splitBtn.addEventListener('click', async () => {
+            if (!state.splitInput.width) return;
+            
+            setButtonLoading(splitBtn, splitBtnText, true, '開始拆解成 6 張圖');
+            facesGrid.innerHTML = '';
+            state.splitOutputs = [];
+            
+            const W = state.splitInput.width;
+            const H = state.splitInput.height;
+            const fw = Math.floor(W / 3);
+            const fh = Math.floor(H / 2);
+            
+            const targetFormat = splitOutputFormat.value;
+            const isExrOutput = targetFormat === 'exr';
+            const mimeType = targetFormat === 'png' ? 'image/png' : 'image/jpeg';
+            
+            setTimeout(async () => {
+                try {
+                    if (isExrOutput && state.splitInput.type === 'sdr' && !state.splitInput.floatData) {
+                        state.splitInput.floatData = imageToFloat32(state.splitInput.imageElement, W, H);
+                    }
+                    
+                    let faceIdx = 0;
+                    for(let row=0; row<2; row++) {
+                        for(let col=0; col<3; col++) {
+                            const name = FACE_NAMES[faceIdx];
+                            const label = FACE_LABELS[faceIdx];
+                            let faceBlob, previewUrl;
+                            
+                            if (isExrOutput) {
+                                const srcData = state.splitInput.floatData;
+                                const faceFloat = new Float32Array(fw * fh * 4);
+                                for(let y=0; y<fh; y++) {
+                                    for(let x=0; x<fw; x++) {
+                                        const srcI = ((row * fh + y) * W + (col * fw + x)) * 4;
+                                        const dstI = (y * fw + x) * 4;
+                                        faceFloat[dstI]   = srcData[srcI];
+                                        faceFloat[dstI+1] = srcData[srcI+1];
+                                        faceFloat[dstI+2] = srcData[srcI+2];
+                                        faceFloat[dstI+3] = srcData[srcI+3];
+                                    }
+                                }
+                                
+                                const exrArray = exportFloat32ToEXR(faceFloat, fw, fh);
+                                faceBlob = new Blob([exrArray], {type: "application/octet-stream"});
+                                
+                                const previewData = float32ToImageData(faceFloat, fw, fh);
+                                const tmpCanvas = document.createElement('canvas');
+                                tmpCanvas.width = fw; tmpCanvas.height = fh;
+                                tmpCanvas.getContext('2d').putImageData(previewData, 0, 0);
+                                previewUrl = tmpCanvas.toDataURL('image/jpeg', 0.8);
+                                
+                            } else {
+                                const tmpCanvas = document.createElement('canvas');
+                                tmpCanvas.width = fw; tmpCanvas.height = fh;
+                                const ctx = tmpCanvas.getContext('2d');
+                                
+                                if (state.splitInput.type === 'exr') {
+                                    ctx.drawImage(splitOriginalCanvas, col*fw, row*fh, fw, fh, 0, 0, fw, fh);
+                                } else {
+                                    ctx.drawImage(state.splitInput.imageElement, col*fw, row*fh, fw, fh, 0, 0, fw, fh);
+                                }
+                                
+                                previewUrl = tmpCanvas.toDataURL(mimeType, 0.95);
+                                faceBlob = await new Promise(resolve => tmpCanvas.toBlob(resolve, mimeType, 0.95));
+                            }
+                            
+                            const ext = targetFormat;
+                            const filename = `${state.splitInput.fileName}_${name}.${ext}`;
+                            state.splitOutputs.push({ blob: faceBlob, filename });
+                            
+                            const div = document.createElement('div');
+                            div.className = 'flex flex-col items-center bg-white p-3 rounded-lg shadow border relative';
+                            div.innerHTML = `
+                                <img src="${previewUrl}" class="w-full h-auto rounded border border-gray-200 mb-2 object-cover aspect-square">
+                                <span class="text-xs font-bold text-blue-600 bg-blue-50 px-2 py-1 rounded border border-blue-200 mb-2">${label}</span>
+                                <a href="${URL.createObjectURL(faceBlob)}" download="${filename}" class="bg-gray-100 hover:bg-gray-200 text-gray-700 text-sm py-1 px-4 rounded transition-colors w-full text-center font-semibold">下載此面</a>
+                            `;
+                            facesGrid.appendChild(div);
+                            faceIdx++;
+                        }
+                    }
+                    
+                    splitResultsContainer.classList.remove('hidden');
+                    
+                } catch(err) {
+                    console.error(err);
+                    showToast("拆解過程發生錯誤: " + err.message, true);
+                } finally {
+                    setButtonLoading(splitBtn, splitBtnText, false, '開始拆解成 6 張圖');
+                }
+            }, 50);
+        });
+
+        downloadAllBtn.addEventListener('click', async () => {
+            if(state.splitOutputs.length !== 6) return;
+            const zip = new JSZip();
+            const folder = zip.folder("cubemap_faces");
+            state.splitOutputs.forEach(out => {
+                folder.file(out.filename, out.blob);
+            });
+            
+            const origText = downloadAllBtn.innerHTML;
+            downloadAllBtn.innerHTML = `<div class="loader" style="width:16px;height:16px;border-width:3px;"></div> 打包中...`;
+            downloadAllBtn.disabled = true;
+            
+            try {
+                const content = await zip.generateAsync({type:"blob"});
+                const link = document.createElement('a');
+                link.href = URL.createObjectURL(content);
+                link.download = `${state.splitInput.fileName || 'cubemap'}_faces.zip`;
+                link.click();
+            } catch(e) {
+                showToast("ZIP 打包失敗", true);
+            } finally {
+                downloadAllBtn.innerHTML = origText;
+                downloadAllBtn.disabled = false;
+            }
+        });
+
+        // ==============================================================
+        // 合成模式 (Merge) 邏輯
+        // ==============================================================
+        function checkMergeReady() {
+            const isReady = state.mergeInputs.every(input => input !== null);
+            mergeBtn.disabled = !isReady;
+        }
+
+        async function loadMergeFile(file, index) {
+            const slot = mergeSlots[index];
+            const canvas = slot.querySelector('canvas');
+            const clearBtn = slot.querySelector('.clear-slot-btn');
+            const placeholder = slot.querySelector('.inset-0.flex');
+            
+            placeholder.innerHTML = `<div class="loader"></div>`;
+            
+            try {
+                const ext = file.name.split('.').pop().toLowerCase();
+                const type = ext === 'exr' ? 'exr' : 'sdr';
+                let inputData = { file, type, width:0, height:0, floatData:null, imageElement:null };
+                
+                if (type === 'exr') {
+                    const buffer = await readFileAsArrayBuffer(file);
+                    const exrData = exrLoader.parse(buffer);
+                    inputData.width = exrData.width;
+                    inputData.height = exrData.height;
+                    inputData.floatData = normalizeToFloat32(exrData.data);
+                    
+                    const imgData = float32ToImageData(inputData.floatData, exrData.width, exrData.height);
+                    canvas.width = exrData.width;
+                    canvas.height = exrData.height;
+                    canvas.getContext('2d').putImageData(imgData, 0, 0);
+                    mergeOutputFormat.value = 'exr';
+                    
+                } else {
+                    const img = await readFileAsImage(file);
+                    inputData.width = img.width;
+                    inputData.height = img.height;
+                    inputData.imageElement = img;
+                    
+                    canvas.width = img.width;
+                    canvas.height = img.height;
+                    canvas.getContext('2d').drawImage(img, 0, 0);
+                }
+                
+                state.mergeInputs[index] = inputData;
+                
+                canvas.classList.remove('hidden');
+                placeholder.classList.add('hidden');
+                clearBtn.classList.remove('hidden');
+                slot.classList.remove('border-dashed', 'border-gray-300');
+                slot.classList.add('border-solid', 'border-blue-400');
+                
+            } catch(err) {
+                console.error(err);
+                showToast("載入圖片失敗: " + err.message, true);
+                placeholder.innerHTML = `
+                    <span class="text-gray-400 font-bold text-2xl mb-1">+</span>
+                    <span class="text-xs text-gray-500 font-semibold bg-white/80 px-2 py-1 rounded">${FACE_LABELS[index]}</span>
+                `;
+            }
+            
+            checkMergeReady();
+        }
+
+        mergeSlots.forEach((slot, idx) => {
+            const input = slot.querySelector('input');
+            const clearBtn = slot.querySelector('.clear-slot-btn');
+            
+            slot.addEventListener('click', (e) => {
+                if (e.target !== clearBtn) input.click();
+            });
+            
+            input.addEventListener('change', (e) => {
+                if(e.target.files.length > 0) loadMergeFile(e.target.files[0], idx);
+            });
+            
+            slot.addEventListener('dragover', e => { e.preventDefault(); slot.classList.add('drag-over'); });
+            slot.addEventListener('dragleave', e => { e.preventDefault(); slot.classList.remove('drag-over'); });
+            slot.addEventListener('drop', e => {
+                e.preventDefault();
+                slot.classList.remove('drag-over');
+                if (e.dataTransfer.files && e.dataTransfer.files.length > 0) {
+                    Array.from(e.dataTransfer.files).slice(0, 6).forEach((f, i) => {
+                        if (idx + i < 6) loadMergeFile(f, idx + i);
+                    });
+                }
+            });
+            
+            clearBtn.addEventListener('click', (e) => {
+                e.stopPropagation();
+                state.mergeInputs[idx] = null;
+                input.value = '';
+                
+                const canvas = slot.querySelector('canvas');
+                const placeholder = slot.querySelector('.inset-0.flex');
+                
+                canvas.classList.add('hidden');
+                placeholder.classList.remove('hidden');
+                placeholder.innerHTML = `
+                    <span class="text-gray-400 font-bold text-2xl mb-1">+</span>
+                    <span class="text-xs text-gray-500 font-semibold bg-white/80 px-2 py-1 rounded">${FACE_LABELS[idx]}</span>
+                `;
+                clearBtn.classList.add('hidden');
+                slot.classList.add('border-dashed', 'border-gray-300');
+                slot.classList.remove('border-solid', 'border-blue-400');
+                
+                checkMergeReady();
+            });
+        });
+
+        mergeBtn.addEventListener('click', () => {
+            if (state.mergeInputs.some(v => v === null)) return;
+            
+            setButtonLoading(mergeBtn, mergeBtnText, true, '開始合成 Cube Map');
+            
+            setTimeout(async () => {
+                try {
+                    const baseW = state.mergeInputs[0].width;
+                    const baseH = state.mergeInputs[0].height;
+                    const allSameSize = state.mergeInputs.every(i => i.width === baseW && i.height === baseH);
+                    
+                    let fw = baseW;
+                    let fh = baseH;
+                    if (!allSameSize) {
+                        showToast("警告：各面圖片解析度不同，將自動縮放至第一張的尺寸。", false);
+                    }
+                    
+                    const totalW = fw * 3;
+                    const totalH = fh * 2;
+                    const targetFormat = mergeOutputFormat.value;
+                    const isExrOutput = targetFormat === 'exr';
+                    
+                    let outBlob, filename;
+                    
+                    if (isExrOutput) {
+                        const outFloat = new Float32Array(totalW * totalH * 4);
+                        
+                        for(let i=0; i<6; i++) {
+                            const input = state.mergeInputs[i];
+                            const col = i % 3;
+                            const row = Math.floor(i / 3);
+                            
+                            let faceFloat = input.floatData;
+                            if (!faceFloat) {
+                                let imgToUse = input.imageElement;
+                                if (input.width !== fw || input.height !== fh) {
+                                    const tmpCanvas = document.createElement('canvas');
+                                    tmpCanvas.width = fw; tmpCanvas.height = fh;
+                                    tmpCanvas.getContext('2d').drawImage(input.imageElement, 0, 0, fw, fh);
+                                    const scaledImg = new Image();
+                                    scaledImg.src = tmpCanvas.toDataURL();
+                                    await new Promise(r => scaledImg.onload = r);
+                                    imgToUse = scaledImg;
+                                }
+                                faceFloat = imageToFloat32(imgToUse, fw, fh);
+                            }
+                            
+                            for(let y=0; y<fh; y++) {
+                                for(let x=0; x<fw; x++) {
+                                    const srcI = (y * fw + x) * 4;
+                                    const dstI = ((row * fh + y) * totalW + (col * fw + x)) * 4;
+                                    outFloat[dstI]   = faceFloat[srcI];
+                                    outFloat[dstI+1] = faceFloat[srcI+1];
+                                    outFloat[dstI+2] = faceFloat[srcI+2];
+                                    outFloat[dstI+3] = faceFloat[srcI+3];
+                                }
+                            }
+                        }
+                        
+                        const exrArray = exportFloat32ToEXR(outFloat, totalW, totalH);
+                        outBlob = new Blob([exrArray], {type: "application/octet-stream"});
+                        filename = "merged_cubemap.exr";
+                        
+                    } else {
+                        const outCanvas = document.createElement('canvas');
+                        outCanvas.width = totalW;
+                        outCanvas.height = totalH;
+                        const ctx = outCanvas.getContext('2d');
+                        
+                        for(let i=0; i<6; i++) {
+                            const input = state.mergeInputs[i];
+                            const col = i % 3;
+                            const row = Math.floor(i / 3);
+                            
+                            if (input.type === 'exr') {
+                                const imgData = float32ToImageData(input.floatData, input.width, input.height);
+                                const tmpCanvas = document.createElement('canvas');
+                                tmpCanvas.width = input.width; tmpCanvas.height = input.height;
+                                tmpCanvas.getContext('2d').putImageData(imgData, 0, 0);
+                                ctx.drawImage(tmpCanvas, col*fw, row*fh, fw, fh);
+                            } else {
+                                ctx.drawImage(input.imageElement, col*fw, row*fh, fw, fh);
+                            }
+                        }
+                        
+                        const mime = targetFormat === 'png' ? 'image/png' : 'image/jpeg';
+                        outBlob = await new Promise(resolve => outCanvas.toBlob(resolve, mime, 0.95));
+                        filename = `merged_cubemap.${targetFormat}`;
+                    }
+                    
+                    const link = document.createElement('a');
+                    link.href = URL.createObjectURL(outBlob);
+                    link.download = filename;
+                    document.body.appendChild(link);
+                    link.click();
+                    document.body.removeChild(link);
+                    
+                    showToast("合成完畢並開始下載！");
+                    
+                } catch(err) {
+                    console.error(err);
+                    showToast("合成失敗: " + err.message, true);
+                } finally {
+                    setButtonLoading(mergeBtn, mergeBtnText, false, '開始合成 Cube Map');
+                }
+            }, 50);
+        });
+
+        // ==============================================================
+        // 全景圖轉換模式 (Equirectangular 雙向) 邏輯
+        // ==============================================================
+        
+        function updateEquiDirection(direction) {
+            state.equiDirection = direction;
+            
+            // 重置轉換狀態
+            state.equiInput = {
+                file: null,
+                fileName: '',
+                type: '',
+                width: 0,
+                height: 0,
+                floatData: null,
+                imageElement: null
+            };
+            state.equiOutputBlob = null;
+            state.equiOutputFilename = '';
+            
+            equiUpload.value = '';
+            equiPreviewContainer.classList.add('hidden');
+            equiResultsContainer.classList.add('hidden');
+            
+            if (direction === 'cube-to-equi') {
+                btnCubeToEqui.className = "px-4 py-2 rounded-md font-bold text-sm bg-white text-blue-600 shadow-sm transition-all focus:outline-none";
+                btnEquiToCube.className = "px-4 py-2 rounded-md font-bold text-sm text-gray-500 hover:text-gray-700 transition-all focus:outline-none";
+                
+                equiDropzoneTitle.textContent = "點擊或拖曳上傳 3x2 Cube Map";
+                equiDropzoneSubtitle.textContent = "將轉換為 2:1 全景圖 (支援 JPG, PNG, EXR)";
+                equiPreviewTitle.textContent = "原始 Cube Map 預覽";
+                equiBtnText.textContent = "開始轉換全景圖";
+                
+                equiResContainer.classList.remove('hidden');
+                cubeResContainer.classList.add('hidden');
+            } else {
+                btnEquiToCube.className = "px-4 py-2 rounded-md font-bold text-sm bg-white text-blue-600 shadow-sm transition-all focus:outline-none";
+                btnCubeToEqui.className = "px-4 py-2 rounded-md font-bold text-sm text-gray-500 hover:text-gray-700 transition-all focus:outline-none";
+                
+                equiDropzoneTitle.textContent = "點擊或拖曳上傳 2:1 全景圖 (Equirectangular)";
+                equiDropzoneSubtitle.textContent = "將轉換為 3x2 Cube Map (支援 JPG, PNG, EXR)";
+                equiPreviewTitle.textContent = "原始全景圖預覽";
+                equiBtnText.textContent = "開始轉換 Cube Map";
+                
+                equiResContainer.classList.add('hidden');
+                cubeResContainer.classList.remove('hidden');
+            }
+        }
+
+        btnCubeToEqui.addEventListener('click', () => updateEquiDirection('cube-to-equi'));
+        btnEquiToCube.addEventListener('click', () => updateEquiDirection('equi-to-cube'));
+
+        async function loadEquiFile(file) {
+            if(!file) return;
+            
+            const ext = file.name.split('.').pop().toLowerCase();
+            state.equiInput.fileName = file.name.replace(`.${ext}`, '');
+            state.equiInput.type = ext === 'exr' ? 'exr' : 'sdr';
+            
+            try {
+                if (state.equiInput.type === 'exr') {
+                    equiOutputFormat.value = 'exr';
+                    const buffer = await readFileAsArrayBuffer(file);
+                    const exrData = exrLoader.parse(buffer);
+                    state.equiInput.width = exrData.width;
+                    state.equiInput.height = exrData.height;
+                    state.equiInput.floatData = normalizeToFloat32(exrData.data);
+                    state.equiInput.imageElement = null;
+                    
+                    const imgData = float32ToImageData(state.equiInput.floatData, exrData.width, exrData.height);
+                    equiOriginalCanvas.width = exrData.width;
+                    equiOriginalCanvas.height = exrData.height;
+                    equiOriginalCanvas.getContext('2d').putImageData(imgData, 0, 0);
+                } else {
+                    equiOutputFormat.value = ext === 'png' ? 'png' : 'jpg';
+                    const img = await readFileAsImage(file);
+                    state.equiInput.width = img.width;
+                    state.equiInput.height = img.height;
+                    state.equiInput.imageElement = img;
+                    state.equiInput.floatData = null;
+                    
+                    equiOriginalCanvas.width = img.width;
+                    equiOriginalCanvas.height = img.height;
+                    equiOriginalCanvas.getContext('2d').drawImage(img, 0, 0);
+                }
+                
+                const w = state.equiInput.width;
+                const h = state.equiInput.height;
+                if (w > 0 && h > 0) {
+                    if (state.equiDirection === 'cube-to-equi') {
+                        const expectedH = Math.round((w / 3) * 2);
+                        if (Math.abs(h - expectedH) > 2) {
+                            showToast(`警告：圖片比例非原始 3:2，這可能會導致轉換過程拉伸。`, false);
+                        }
+                    } else {
+                        const expectedH = Math.round(w / 2);
+                        if (Math.abs(h - expectedH) > 2) {
+                            showToast(`警告：全景圖比例非原始 2:1 (目前為 ${w}x${h})，轉換可能會稍微變形。`, false);
+                        }
+                    }
+                }
+
+                equiPreviewContainer.classList.remove('hidden');
+                equiResultsContainer.classList.add('hidden');
+                
+            } catch (err) {
+                console.error(err);
+                showToast("載入圖片失敗: " + err.message, true);
+            }
+        }
+
+        equiUpload.addEventListener('change', (e) => loadEquiFile(e.target.files[0]));
+        equiDropzone.addEventListener('dragover', (e) => { e.preventDefault(); equiDropzone.classList.add('drag-over'); });
+        equiDropzone.addEventListener('dragleave', (e) => { e.preventDefault(); equiDropzone.classList.remove('drag-over'); });
+        equiDropzone.addEventListener('drop', (e) => {
+            e.preventDefault();
+            equiDropzone.classList.remove('drag-over');
+            if (e.dataTransfer.files && e.dataTransfer.files.length > 0) {
+                loadEquiFile(e.dataTransfer.files[0]);
+            }
+        });
+
+        equiBtn.addEventListener('click', () => {
+            if (!state.equiInput.width) return;
+            
+            const direction = state.equiDirection;
+            const btnText = direction === 'cube-to-equi' ? '開始轉換全景圖' : '開始轉換 Cube Map';
+            setButtonLoading(equiBtn, equiBtnText, true, '轉換中，請稍候...');
+            equiResultsContainer.classList.add('hidden');
+            
+            setTimeout(async () => {
+                try {
+                    const srcW = state.equiInput.width;
+                    const srcH = state.equiInput.height;
+                    const targetFormat = equiOutputFormat.value;
+                    const isExrOutput = targetFormat === 'exr';
+
+                    let srcData;
+                    if (state.equiInput.floatData) {
+                        srcData = state.equiInput.floatData;
+                    } else {
+                        srcData = imageToFloat32(state.equiInput.imageElement, srcW, srcH);
+                    }
+
+                    if (direction === 'cube-to-equi') {
+                        // ==========================================
+                        // Cube Map ➔ 全景圖 (2:1)
+                        // ==========================================
+                        const fw = Math.floor(srcW / 3);
+                        const fh = Math.floor(srcH / 2);
+
+                        const outW = parseInt(equiRes.value, 10);
+                        const outH = outW / 2;
+                        const outData = new Float32Array(outW * outH * 4);
+
+                        for (let y = 0; y < outH; y++) {
+                            const v_equi = y / (outH - 1);
+                            const phi = (0.5 - v_equi) * Math.PI; 
+                            const sinPhi = Math.sin(phi);
+                            const cosPhi = Math.cos(phi);
+
+                            for (let x = 0; x < outW; x++) {
+                                const u_equi = x / (outW - 1);
+                                const theta = (u_equi - 0.5) * 2 * Math.PI; 
+
+                                const dx = cosPhi * Math.sin(theta);
+                                const dy = sinPhi;
+                                const dz = cosPhi * Math.cos(theta);
+
+                                const absX = Math.abs(dx);
+                                const absY = Math.abs(dy);
+                                const absZ = Math.abs(dz);
+
+                                let faceIdx, sc, tc, ma;
+
+                                if (absX >= absY && absX >= absZ) {
+                                    ma = absX;
+                                    if (dx > 0) { faceIdx = 0; sc = -dz; tc = -dy; } 
+                                    else        { faceIdx = 1; sc = dz;  tc = -dy; } 
+                                } else if (absY >= absX && absY >= absZ) {
+                                    ma = absY;
+                                    if (dy > 0) { faceIdx = 2; sc = dx; tc = dz; }   
+                                    else        { faceIdx = 3; sc = dx; tc = -dz; }  
+                                } else {
+                                    ma = absZ;
+                                    if (dz > 0) { faceIdx = 4; sc = dx; tc = -dy; }  
+                                    else        { faceIdx = 5; sc = -dx; tc = -dy; } 
+                                }
+
+                                const faceU = (sc / ma + 1) / 2;
+                                const faceV = (tc / ma + 1) / 2;
+
+                                const col = faceIdx % 3;
+                                const row = Math.floor(faceIdx / 3);
+
+                                const srcPx = col * fw + faceU * (fw - 1);
+                                const srcPy = row * fh + faceV * (fh - 1);
+
+                                const x0 = Math.floor(srcPx);
+                                const y0 = Math.floor(srcPy);
+                                
+                                const clampMaxX = col * fw + fw - 1;
+                                const clampMaxY = row * fh + fh - 1;
+                                const clampMinX = col * fw;
+                                const clampMinY = row * fh;
+                                
+                                const x1 = Math.min(x0 + 1, clampMaxX);
+                                const y1 = Math.min(y0 + 1, clampMaxY);
+
+                                const wx = srcPx - x0;
+                                const wy = srcPy - y0;
+
+                                const getVal = (cx, cy, ch) => {
+                                    const clampedX = Math.max(clampMinX, Math.min(cx, clampMaxX));
+                                    const clampedY = Math.max(clampMinY, Math.min(cy, clampMaxY));
+                                    return srcData[(clampedY * srcW + clampedX) * 4 + ch];
+                                };
+
+                                const outIdx = (y * outW + x) * 4;
+                                for (let c = 0; c < 4; c++) {
+                                    const c00 = getVal(x0, y0, c);
+                                    const c10 = getVal(x1, y0, c);
+                                    const c01 = getVal(x0, y1, c);
+                                    const c11 = getVal(x1, y1, c);
+
+                                    const interp = c00 * (1 - wx) * (1 - wy) +
+                                                   c10 * wx * (1 - wy) +
+                                                   c01 * (1 - wx) * wy +
+                                                   c11 * wx * wy;
+
+                                    outData[outIdx + c] = interp;
+                                }
+                            }
+                        }
+
+                        let filename = `${state.equiInput.fileName}_Equirectangular`;
+                        let mimeType = 'image/jpeg';
+                        
+                        if (isExrOutput) {
+                            const exrArray = exportFloat32ToEXR(outData, outW, outH);
+                            state.equiOutputBlob = new Blob([exrArray], {type: "application/octet-stream"});
+                            state.equiOutputFilename = filename + '.exr';
+                            
+                            const previewData = float32ToImageData(outData, outW, outH);
+                            equiResultCanvas.width = outW; equiResultCanvas.height = outH;
+                            equiResultCanvas.getContext('2d').putImageData(previewData, 0, 0);
+                        } else {
+                            mimeType = targetFormat === 'png' ? 'image/png' : 'image/jpeg';
+                            state.equiOutputFilename = filename + `.${targetFormat}`;
+                            
+                            const previewData = float32ToImageData(outData, outW, outH);
+                            equiResultCanvas.width = outW; equiResultCanvas.height = outH;
+                            equiResultCanvas.getContext('2d').putImageData(previewData, 0, 0);
+                            
+                            state.equiOutputBlob = await new Promise(resolve => equiResultCanvas.toBlob(resolve, mimeType, 0.95));
+                        }
+
+                        equiResultsTitle.textContent = "轉換結果 (Equirectangular)";
+                        equiResultsContainer.classList.remove('hidden');
+                        showToast("轉換成功！");
+
+                    } else {
+                        // ==========================================
+                        // 全景圖 (2:1) ➔ Cube Map 3x2
+                        // ==========================================
+                        const faceSize = parseInt(cubeFaceRes.value, 10);
+                        const outW = faceSize * 3;
+                        const outH = faceSize * 2;
+                        const outData = new Float32Array(outW * outH * 4);
+
+                        for (let y = 0; y < outH; y++) {
+                            const row = Math.floor(y / faceSize);
+                            const localY = y % faceSize;
+                            const v = localY / (faceSize - 1); // 0 to 1
+                            const t = 2 * v - 1; // -1 to 1
+
+                            for (let x = 0; x < outW; x++) {
+                                const col = Math.floor(x / faceSize);
+                                const localX = x % faceSize;
+                                const u = localX / (faceSize - 1); // 0 to 1
+                                const s = 2 * u - 1; // -1 to 1
+
+                                const faceIdx = row * 3 + col; // 0 to 5
+                                let dx = 0, dy = 0, dz = 0;
+
+                                // 嚴格比照 FB / YT 3x2 空間對應
+                                switch (faceIdx) {
+                                    case 0: // Right (+X)
+                                        dx = 1; dy = -t; dz = -s;
+                                        break;
+                                    case 1: // Left (-X)
+                                        dx = -1; dy = -t; dz = s;
+                                        break;
+                                    case 2: // Up (+Y)
+                                        dx = s; dy = 1; dz = t;
+                                        break;
+                                    case 3: // Down (-Y)
+                                        dx = s; dy = -1; dz = -t;
+                                        break;
+                                    case 4: // Front (+Z)
+                                        dx = s; dy = -t; dz = 1;
+                                        break;
+                                    case 5: // Back (-Z)
+                                        dx = -s; dy = -t; dz = -1;
+                                        break;
+                                }
+
+                                // 向量標準化
+                                const len = Math.sqrt(dx*dx + dy*dy + dz*dz);
+                                dx /= len;
+                                dy /= len;
+                                dz /= len;
+
+                                // 計算球面座標系的 2D 全景貼圖索引
+                                const phi = Math.asin(Math.max(-1, Math.min(1, dy))); // -PI/2 to PI/2
+                                const theta = Math.atan2(dx, dz); // -PI to PI
+
+                                const u_equi = (theta / (2 * Math.PI)) + 0.5; // 0 to 1
+                                const v_equi = 0.5 - (phi / Math.PI); // 0 to 1
+
+                                const srcPx = u_equi * (srcW - 1);
+                                const srcPy = v_equi * (srcH - 1);
+
+                                // 雙線性插值取樣
+                                const x0 = Math.floor(srcPx);
+                                const y0 = Math.floor(srcPy);
+                                const x1 = Math.min(x0 + 1, srcW - 1);
+                                const y1 = Math.min(y0 + 1, srcH - 1);
+
+                                const wx = srcPx - x0;
+                                const wy = srcPy - y0;
+
+                                const outIdx = (y * outW + x) * 4;
+                                for (let c = 0; c < 4; c++) {
+                                    const c00 = srcData[(y0 * srcW + x0) * 4 + c];
+                                    const c10 = srcData[(y0 * srcW + x1) * 4 + c];
+                                    const c01 = srcData[(y1 * srcW + x0) * 4 + c];
+                                    const c11 = srcData[(y1 * srcW + x1) * 4 + c];
+
+                                    const interp = c00 * (1 - wx) * (1 - wy) +
+                                                   c10 * wx * (1 - wy) +
+                                                   c01 * (1 - wx) * wy +
+                                                   c11 * wx * wy;
+
+                                    outData[outIdx + c] = interp;
+                                }
+                            }
+                        }
+
+                        let filename = `${state.equiInput.fileName}_CubeMap_3x2`;
+                        let mimeType = 'image/jpeg';
+
+                        if (isExrOutput) {
+                            const exrArray = exportFloat32ToEXR(outData, outW, outH);
+                            state.equiOutputBlob = new Blob([exrArray], {type: "application/octet-stream"});
+                            state.equiOutputFilename = filename + '.exr';
+
+                            const previewData = float32ToImageData(outData, outW, outH);
+                            equiResultCanvas.width = outW; equiResultCanvas.height = outH;
+                            equiResultCanvas.getContext('2d').putImageData(previewData, 0, 0);
+                        } else {
+                            mimeType = targetFormat === 'png' ? 'image/png' : 'image/jpeg';
+                            state.equiOutputFilename = filename + `.${targetFormat}`;
+
+                            const previewData = float32ToImageData(outData, outW, outH);
+                            equiResultCanvas.width = outW; equiResultCanvas.height = outH;
+                            equiResultCanvas.getContext('2d').putImageData(previewData, 0, 0);
+
+                            state.equiOutputBlob = await new Promise(resolve => equiResultCanvas.toBlob(resolve, mimeType, 0.95));
+                        }
+
+                        equiResultsTitle.textContent = "轉換結果 (3x2 Cube Map)";
+                        equiResultsContainer.classList.remove('hidden');
+                        showToast("轉換成功！");
+                    }
+
+                } catch(err) {
+                    console.error(err);
+                    showToast("轉換過程發生錯誤: " + err.message, true);
+                } finally {
+                    setButtonLoading(equiBtn, equiBtnText, false, btnText);
+                }
+            }, 100);
+        });
+
+        equiDownloadBtn.addEventListener('click', () => {
+            if (!state.equiOutputBlob) return;
+            const link = document.createElement('a');
+            link.href = URL.createObjectURL(state.equiOutputBlob);
+            link.download = state.equiOutputFilename;
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
+        });
+
+        // ==============================================================
+        // 360° 預覽模式 (360° Viewer) 邏輯
+        // ==============================================================
+        
+        // 徹底釋放 3D 預覽器持有的所有 GPU/CPU 資源
+        function destroy3DViewer() {
+            if (activeViewer.animationFrameId) {
+                cancelAnimationFrame(activeViewer.animationFrameId);
+                activeViewer.animationFrameId = null;
+            }
+            if (activeViewer.resizeObserver) {
+                activeViewer.resizeObserver.disconnect();
+                activeViewer.resizeObserver = null;
+            }
+            if (activeViewer.controls) {
+                activeViewer.controls.dispose();
+                activeViewer.controls = null;
+            }
+            if (activeViewer.textures) {
+                activeViewer.textures.forEach(t => t.dispose());
+                activeViewer.textures = [];
+            }
+            if (activeViewer.skyboxMesh) {
+                activeViewer.skyboxMesh.geometry.dispose();
+                if (Array.isArray(activeViewer.skyboxMesh.material)) {
+                    activeViewer.skyboxMesh.material.forEach(m => m.dispose());
+                } else {
+                    activeViewer.skyboxMesh.material.dispose();
+                }
+                if (activeViewer.scene) {
+                    activeViewer.scene.remove(activeViewer.skyboxMesh);
+                }
+                activeViewer.skyboxMesh = null;
+            }
+            if (activeViewer.renderer) {
+                activeViewer.renderer.dispose();
+                const dom = activeViewer.renderer.domElement;
+                if (dom && dom.parentNode) {
+                    dom.parentNode.removeChild(dom);
+                }
+                activeViewer.renderer = null;
+            }
+            activeViewer.scene = null;
+            activeViewer.camera = null;
+        }
+
+        // 開始渲染虛擬相機循環
+        function startViewerAnimation() {
+            function animate() {
+                if (!activeViewer.renderer || !activeViewer.scene || !activeViewer.camera) return;
+                activeViewer.animationFrameId = requestAnimationFrame(animate);
+                
+                // 自動緩慢水平旋轉
+                if (activeViewer.isRotating && activeViewer.skyboxMesh) {
+                    activeViewer.skyboxMesh.rotation.y += 0.001;
+                }
+                
+                if (activeViewer.controls) {
+                    activeViewer.controls.update();
+                }
+                activeViewer.renderer.render(activeViewer.scene, activeViewer.camera);
+            }
+            animate();
+        }
+
+        // 初始化並載入 3D 預覽環境
+        async function init3DViewer(input) {
+            destroy3DViewer(); // 清空舊的
+
+            const parent = document.getElementById('canvas3d-parent');
+            parent.innerHTML = ''; // 徹底排空子元素
+
+            const W = input.width;
+            const H = input.height;
+            const fw = Math.floor(W / 3);
+            const fh = Math.floor(H / 2);
+
+            // 1. 建立場景與相機
+            const scene = new THREE.Scene();
+            const camera = new THREE.PerspectiveCamera(75, parent.clientWidth / parent.clientHeight, 0.1, 1000);
+            // 將相機放在中心，稍微往前看一點以觸發初始渲染方向
+            camera.position.set(0, 0, 0.1); 
+
+            // 2. 建立渲染器 (支援高品質消除鋸齒)
+            const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: false });
+            renderer.setSize(parent.clientWidth, parent.clientHeight);
+            renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+            
+            // 啟用 ACES 擬真色調映射以提供 EXR 最佳高動態色彩渲染
+            renderer.toneMapping = THREE.ACESFilmicToneMapping;
+            renderer.toneMappingExposure = 1.0;
+            parent.appendChild(renderer.domElement);
+
+            // 3. 設定軌道控制器
+            const controls = new OrbitControls(camera, renderer.domElement);
+            controls.enableDamping = true;
+            controls.dampingFactor = 0.05;
+            // 由於相機是從盒子「內部」往外看，旋轉速度設定為負值，拖曳方向才符合人眼直覺
+            controls.rotateSpeed = -0.4; 
+            controls.enableZoom = true;
+            controls.minDistance = 0.1;
+            controls.maxDistance = 10;
+            controls.enablePan = false; // 鎖定相機在原地，僅能旋轉
+
+            // 4. 解析材質與建立網格
+            let skyboxMesh;
+            const textures = [];
+
+            if (input.layout === 'equirectangular') {
+                // ==========================================
+                // 處理 2:1 Equirectangular 全景圖
+                // ==========================================
+                let texture;
+                if (input.type === 'exr' && input.floatData) {
+                    texture = new THREE.DataTexture(input.floatData, W, H, THREE.RGBAFormat, THREE.FloatType);
+                } else {
+                    texture = new THREE.Texture(input.imageElement);
+                    texture.colorSpace = THREE.SRGBColorSpace;
+                }
+                texture.needsUpdate = true;
+                textures.push(texture);
+
+                // 使用高解析度球體 (64x40 網格) 來保持曲線平滑
+                const geometry = new THREE.SphereGeometry(100, 64, 40);
+                geometry.scale(-1, 1, 1); // 反轉 X 軸以修正視角並將表面翻轉朝內
+                const material = new THREE.MeshBasicMaterial({ map: texture });
+                
+                skyboxMesh = new THREE.Mesh(geometry, material);
+                scene.add(skyboxMesh);
+
+            } else {
+                // ==========================================
+                // 處理 3x2 Cube Map
+                // ==========================================
+                if (input.type === 'exr' && input.floatData) {
+                    // EXR 模式：抽取 32-bit Float 資料
+                    const srcData = input.floatData;
+                    for (let i = 0; i < 6; i++) {
+                    // SDR 模式：使用 Canvas 分割圖片
+                    for (let i = 0; i < 6; i++) {
+                        const col = i % 3;
+                        const row = Math.floor(i / 3);
+                        const canvas = document.createElement('canvas');
+                        canvas.width = fw;
+                        canvas.height = fh;
+                        const ctx = canvas.getContext('2d');
+                        ctx.drawImage(input.imageElement, col * fw, row * fh, fw, fh, 0, 0, fw, fh);
+                        
+                        const texture = new THREE.CanvasTexture(canvas);
+                        texture.colorSpace = THREE.SRGBColorSpace;
+                        textures.push(texture);
+                    }
+                }
+
+                // 5. 建立 3D 立方體並將表面法線翻轉 (反向縮放 X 軸)
+                const materials = [];
+                for (let i = 0; i < 6; i++) {
+                    materials.push(new THREE.MeshBasicMaterial({
+                        map: textures[i],
+                        side: THREE.DoubleSide
+                    }));
+                }
+                const geometry = new THREE.BoxGeometry(100, 100, 100);
+                geometry.scale(-1, 1, 1); 
+                
+                skyboxMesh = new THREE.Mesh(geometry, materials);
+                scene.add(skyboxMesh);
+            }
+
+            // 6. 寫入全域狀態管理
+            activeViewer.renderer = renderer;
+            activeViewer.scene = scene;
+            activeViewer.camera = camera;
+            activeViewer.controls = controls;
+            activeViewer.skyboxMesh = skyboxMesh;
+            activeViewer.textures = textures;
+
+            // 7. 綁定按鈕控制事件
+            const rotateBtn = document.getElementById('viewer-btn-rotate');
+            const resetBtn = document.getElementById('viewer-btn-reset');
+            
+            function updateRotateBtnUI() {
+                rotateBtn.textContent = activeViewer.isRotating ? "🔄 自動旋轉: 開" : "🔄 自動旋轉: 關";
+                rotateBtn.className = activeViewer.isRotating 
+                    ? "bg-blue-600 hover:bg-blue-700 text-white font-bold py-1.5 px-3 rounded text-sm transition-colors flex items-center gap-1"
+                    : "bg-gray-200 hover:bg-gray-300 text-gray-700 font-bold py-1.5 px-3 rounded text-sm transition-colors flex items-center gap-1";
+            }
+            
+            rotateBtn.onclick = () => {
+                activeViewer.isRotating = !activeViewer.isRotating;
+                updateRotateBtnUI();
+            };
+            
+            resetBtn.onclick = () => {
+                controls.reset();
+                camera.position.set(0, 0, 0.1);
+                controls.target.set(0, 0, 0);
+                if (skyboxMesh) {
+                    skyboxMesh.rotation.set(0, 0, 0);
+                }
+            };
+
+            // 預設關閉自動旋轉
+            activeViewer.isRotating = false;
+            updateRotateBtnUI();
+
+            // 啟動動畫渲染循環
+            startViewerAnimation();
+
+            // 監聽尺寸調整，確保全景預覽視窗在 RWD 時不拉伸變形
+            const resizeObserver = new ResizeObserver(() => {
+                if (activeViewer.renderer && activeViewer.camera) {
+                    const width = parent.clientWidth;
+                    const height = parent.clientHeight;
+                    activeViewer.camera.aspect = width / height;
+                    activeViewer.camera.updateProjectionMatrix();
+                    activeViewer.renderer.setSize(width, height);
+                }
+            });
+            resizeObserver.observe(parent);
+            activeViewer.resizeObserver = resizeObserver;
+        }
+
+        // 載入預覽用的 Cube Map 檔案
+        async function loadViewerFile(file) {
+            if(!file) return;
+            
+            const ext = file.name.split('.').pop().toLowerCase();
+            state.viewerInput.fileName = file.name.replace(`.${ext}`, '');
+            state.viewerInput.type = ext === 'exr' ? 'exr' : 'sdr';
+            
+            try {
+                if (state.viewerInput.type === 'exr') {
+                    const buffer = await readFileAsArrayBuffer(file);
+                    const exrData = exrLoader.parse(buffer);
+                    state.viewerInput.width = exrData.width;
+                    state.viewerInput.height = exrData.height;
+                    state.viewerInput.floatData = normalizeToFloat32(exrData.data);
+                    state.viewerInput.imageElement = null;
+                } else {
+                    const img = await readFileAsImage(file);
+                    state.viewerInput.width = img.width;
+                    state.viewerInput.height = img.height;
+                    state.viewerInput.imageElement = img;
+                    state.viewerInput.floatData = null;
+                }
+
+                // 自動判斷版型
+                const ratio = state.viewerInput.width / state.viewerInput.height;
+                if (Math.abs(ratio - 2.0) < 0.1) {
+                    state.viewerInput.layout = 'equirectangular';
+                } else {
+                    state.viewerInput.layout = 'cubemap';
+                    if (Math.abs(ratio - 1.5) >= 0.1) {
+                        showToast("警告：圖片比例非 3:2 且非 2:1，系統預設以 Cube Map (3x2) 方式處理，可能會有破圖。", false);
+                    }
+                }
+
+                viewerContainer.classList.remove('hidden');
+                
+                // 初始化 3D 投影
+                await init3DViewer(state.viewerInput);
+                const formatText = state.viewerInput.layout === 'equirectangular' ? '2:1 全景圖' : '3x2 Cube Map';
+                showToast(`已自動偵測為 ${formatText} 並載入！按住拖曳可調整視角。`);
+                
+            } catch (err) {
+                console.error(err);
+                showToast("載入圖片失敗: " + err.message, true);
+            }
+        }
+
+        viewerUpload.addEventListener('change', (e) => loadViewerFile(e.target.files[0]));
+        viewerDropzone.addEventListener('dragover', (e) => { e.preventDefault(); viewerDropzone.classList.add('drag-over'); });
+        viewerDropzone.addEventListener('dragleave', (e) => { e.preventDefault(); viewerDropzone.classList.remove('drag-over'); });
+        viewerDropzone.addEventListener('drop', (e) => {
+            e.preventDefault();
+            viewerDropzone.classList.remove('drag-over');
+            if (e.dataTransfer.files && e.dataTransfer.files.length > 0) {
+                loadViewerFile(e.dataTransfer.files[0]);
+            }
+        });
+
+    </script>
+</body>
+</html>
