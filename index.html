@@ -1548,6 +1548,25 @@
                     // EXR 模式：抽取 32-bit Float 資料
                     const srcData = input.floatData;
                     for (let i = 0; i < 6; i++) {
+                        const col = i % 3;
+                        const row = Math.floor(i / 3);
+                        const faceFloat = new Float32Array(fw * fh * 4);
+                        
+                        for(let y = 0; y < fh; y++) {
+                            for(let x = 0; x < fw; x++) {
+                                const srcI = ((row * fh + y) * W + (col * fw + x)) * 4;
+                                const dstI = (y * fw + x) * 4;
+                                faceFloat[dstI]   = srcData[srcI];
+                                faceFloat[dstI+1] = srcData[srcI+1];
+                                faceFloat[dstI+2] = srcData[srcI+2];
+                                faceFloat[dstI+3] = srcData[srcI+3];
+                            }
+                        }
+                        const texture = new THREE.DataTexture(faceFloat, fw, fh, THREE.RGBAFormat, THREE.FloatType);
+                        texture.needsUpdate = true;
+                        textures.push(texture);
+                    }
+                } else {
                     // SDR 模式：使用 Canvas 分割圖片
                     for (let i = 0; i < 6; i++) {
                         const col = i % 3;
