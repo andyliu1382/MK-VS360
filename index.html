@@ -2038,7 +2038,10 @@
               <h2 class="step-heading">上傳 360 的 2:1 全景圖</h2>
               <p class="step-desc">此流程固定從 Equirectangular 2:1 開始；系統會拒絕 3×2 Cube Map 作為起點，避免流程分岔。</p>
             </div>
-            <button id="btn-clear-workflow" class="btn btn-neutral flex-shrink-0">重置流程</button>
+            <div class="flex gap-3 flex-wrap">
+              <button id="btn-use-sample" class="btn btn-primary flex-shrink-0">✨ 使用範例圖體驗</button>
+              <button id="btn-clear-workflow" class="btn btn-neutral flex-shrink-0">重置流程</button>
+            </div>
           </div>
           <div id="source-dropzone" role="button" tabindex="0" class="dropzone p-14 flex flex-col items-center text-center gap-5">
             <input id="source-file" type="file" class="hidden" accept="${CONFIG.accept}">
@@ -2665,6 +2668,26 @@
 
       Dom.q('#btn-close-share')?.addEventListener('click', () => {
           Dom.q('#share-modal').classList.add('hidden');
+      });
+
+      Dom.q('#btn-use-sample')?.addEventListener('click', async () => {
+          const btn = Dom.q('#btn-use-sample');
+          UI.setLoading(btn, true, '下載範例中...');
+          try {
+              // 從 GitHub 取得開源的 Three.js 2:1 室內全景範例圖 (具備跨網域存取權限)
+              const url = 'https://raw.githubusercontent.com/mrdoob/three.js/master/examples/textures/2294472375_24a3b8ef46_o.jpg';
+              const response = await fetch(url, { mode: 'cors' });
+              if (!response.ok) throw new Error('範例圖下載失敗');
+              const blob = await response.blob();
+              // 將取得的圖檔轉換成類似使用者上傳的 File 物件
+              const file = new File([blob], 'sample_room_panorama.jpg', { type: 'image/jpeg' });
+              await handleSourceFileUpload(file, false);
+          } catch (err) {
+              console.error(err);
+              UI.toast('無法載入範例圖：' + err.message, 'error');
+          } finally {
+              UI.setLoading(btn, false, '✨ 使用範例圖體驗');
+          }
       });
 
       Dom.q('#btn-clear-workflow').addEventListener('click', () => {
