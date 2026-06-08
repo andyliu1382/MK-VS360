@@ -569,6 +569,58 @@
     </div>
   </div>
 
+  <!-- 全螢幕接縫檢查 Modal -->
+  <div id="seam-fullscreen-modal" class="fixed inset-0 z-[10000] hidden flex flex-col bg-black/95 backdrop-blur-xl transition-opacity duration-300 opacity-0">
+     <div class="flex items-center justify-between p-4 md:p-6 bg-gradient-to-b from-black/80 to-transparent relative z-10 pointer-events-none">
+         <div class="text-white font-bold flex items-center gap-4">
+            <span class="text-lg drop-shadow-md">接縫檢查 (大圖預覽)</span>
+         </div>
+         <button id="btn-close-seam-fullscreen" class="btn btn-neutral bg-white/10 text-white border-white/20 hover:bg-white/20 shadow-md pointer-events-auto">關閉 (Esc)</button>
+     </div>
+     <div class="flex-1 flex items-center justify-center p-4 pb-48 md:p-8 md:pb-40 overflow-hidden relative" id="seam-fullscreen-container">
+         <!-- Canvas 會動態注入於此 -->
+     </div>
+     
+     <!-- 全螢幕浮動控制面板 -->
+     <div class="absolute bottom-6 md:bottom-10 left-1/2 -translate-x-1/2 w-[95%] max-w-4xl glass-panel p-5 md:p-8 rounded-[24px] z-20 bg-black/60 border border-white/20 shadow-[0_20px_60px_rgba(0,0,0,0.8)] backdrop-blur-2xl">
+        <div class="flex flex-col md:flex-row gap-6 md:gap-10 items-center">
+           <!-- Yaw -->
+           <div class="flex-1 w-full">
+              <div class="flex justify-between items-center mb-3">
+                 <label class="text-white text-[15px] font-bold tracking-wide">Yaw <span class="text-white/50 text-xs ml-1">旋轉</span></label>
+                 <div class="relative w-[76px]">
+                    <input id="modal-split-yaw-num" class="ctrl w-full pr-5 text-right font-mono !py-1.5 !px-2 !text-[13px] bg-white/10 border-white/20 text-white" type="number" min="-180" max="180" value="0">
+                    <span class="absolute right-2 top-1/2 -translate-y-1/2 text-white/50 font-bold text-[12px] pointer-events-none">°</span>
+                 </div>
+              </div>
+              <input id="modal-split-yaw" type="range" min="-180" max="180" value="0" step="1" class="w-full cursor-pointer accent-[var(--brand)]">
+           </div>
+           <!-- Pitch -->
+           <div class="flex-1 w-full">
+              <div class="flex justify-between items-center mb-3">
+                 <label class="text-white text-[15px] font-bold tracking-wide">Pitch <span class="text-white/50 text-xs ml-1">上下</span></label>
+                 <div class="relative w-[76px]">
+                    <input id="modal-split-pitch-num" class="ctrl w-full pr-5 text-right font-mono !py-1.5 !px-2 !text-[13px] bg-white/10 border-white/20 text-white" type="number" min="-75" max="75" value="0">
+                    <span class="absolute right-2 top-1/2 -translate-y-1/2 text-white/50 font-bold text-[12px] pointer-events-none">°</span>
+                 </div>
+              </div>
+              <input id="modal-split-pitch" type="range" min="-75" max="75" value="0" step="1" class="w-full cursor-pointer accent-[var(--brand)]">
+           </div>
+           <!-- Roll -->
+           <div class="flex-1 w-full">
+              <div class="flex justify-between items-center mb-3">
+                 <label class="text-white text-[15px] font-bold tracking-wide">Roll <span class="text-white/50 text-xs ml-1">地平線</span></label>
+                 <div class="relative w-[76px]">
+                    <input id="modal-split-roll-num" class="ctrl w-full pr-5 text-right font-mono !py-1.5 !px-2 !text-[13px] bg-white/10 border-white/20 text-white" type="number" min="-180" max="180" value="0">
+                    <span class="absolute right-2 top-1/2 -translate-y-1/2 text-white/50 font-bold text-[12px] pointer-events-none">°</span>
+                 </div>
+              </div>
+              <input id="modal-split-roll" type="range" min="-180" max="180" value="0" step="1" class="w-full cursor-pointer accent-[var(--brand)]">
+           </div>
+        </div>
+     </div>
+  </div>
+
   <!-- 液態玻璃 (Liquid Glass) SVG 濾鏡 -->
   <svg style="width:0; height:0; position:absolute; pointer-events:none;" aria-hidden="true" focusable="false">
     <filter id="liquid-glass-filter" x="-20%" y="-20%" width="140%" height="140%">
@@ -2135,7 +2187,9 @@
               </div>
               <div class="control-group flex gap-4">
                 <button id="btn-reset-split-orientation" class="btn btn-neutral flex-1">重置朝向</button>
-                <button id="btn-preview-split-seams" class="btn btn-neutral flex-1">更新預覽</button>
+                <button id="btn-fullscreen-preview" class="btn btn-neutral flex-1">
+                   <svg class="w-4 h-4 mr-1 inline-block" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 8V4m0 0h4M4 4l5 5m11-1V4m0 0h-4m4 0l-5 5M4 16v4m0 0h4m-4 0l5-5m11 5l-5-5m5 5v-4m0 4h-4"></path></svg>全螢幕放大
+                </button>
               </div>
             </div>
             <div class="orientation-preview-wrap checker inner-panel p-6 flex items-center justify-center overflow-auto" id="split-orientation-preview">
@@ -2498,7 +2552,10 @@
       [
         ['yaw', '#split-yaw', '#split-yaw-num'],
         ['pitch', '#split-pitch', '#split-pitch-num'],
-        ['roll', '#split-roll', '#split-roll-num']
+        ['roll', '#split-roll', '#split-roll-num'],
+        ['yaw', '#modal-split-yaw', '#modal-split-yaw-num'],
+        ['pitch', '#modal-split-pitch', '#modal-split-pitch-num'],
+        ['roll', '#modal-split-roll', '#modal-split-roll-num']
       ].forEach(([axis, sliderSel, numSel]) => {
         // Slider 綁定 (即時預覽與更新)
         Dom.q(sliderSel)?.addEventListener('input', e => syncOrientationFromControl(axis, e.target.value, false));
@@ -2522,7 +2579,51 @@
       };
       Dom.q('#btn-reset-split-orientation')?.addEventListener('click', resetOrientation);
       Dom.q('#btn-split-fullscreen-reset')?.addEventListener('click', resetOrientation);
-      Dom.q('#btn-preview-split-seams')?.addEventListener('click', () => { renderSplitOrientationPreview(); });
+      
+      // 全螢幕接縫大圖預覽功能
+      Dom.q('#btn-fullscreen-preview')?.addEventListener('click', () => {
+          const asset = AppStore.state.sourceAsset;
+          if (!asset) {
+              UI.toast('請先上傳全景圖', 'warn');
+              return;
+          }
+          const modal = Dom.q('#seam-fullscreen-modal');
+          const container = Dom.q('#seam-fullscreen-container');
+          
+          // 繪製高解析度的大圖 (2048px) 以供全螢幕檢視
+          const canvas = renderSplitOrientationCanvas(2048);
+          if (canvas) {
+              container.innerHTML = '';
+              canvas.className = 'max-w-full max-h-full object-contain rounded-xl shadow-[0_0_40px_rgba(0,0,0,0.8)] border border-white/20';
+              container.appendChild(canvas);
+              
+              modal.classList.remove('hidden');
+              // 觸發淡入動畫
+              requestAnimationFrame(() => {
+                  modal.style.opacity = '1';
+              });
+              
+              const escListener = (e) => {
+                  if (e.key === 'Escape') {
+                      closeFullscreenModal();
+                      document.removeEventListener('keydown', escListener);
+                  }
+              };
+              document.addEventListener('keydown', escListener);
+          }
+      });
+
+      const closeFullscreenModal = () => {
+          const modal = Dom.q('#seam-fullscreen-modal');
+          if (!modal) return;
+          modal.style.opacity = '0';
+          setTimeout(() => {
+              modal.classList.add('hidden');
+              Dom.q('#seam-fullscreen-container').innerHTML = ''; // 清理記憶體
+          }, 300);
+      };
+
+      Dom.q('#btn-close-seam-fullscreen')?.addEventListener('click', closeFullscreenModal);
       
       Dom.q('#btn-build-faces').addEventListener('click', async e => {
         const btn = e.currentTarget;
@@ -2754,9 +2855,9 @@
         roll: clampSplitOrientationValue('roll', orientation.roll ?? 0)
       };
       const pairs = [
-        ['yaw', '#split-yaw', '#split-yaw-num'],
-        ['pitch', '#split-pitch', '#split-pitch-num'],
-        ['roll', '#split-roll', '#split-roll-num']
+        ['yaw', '#split-yaw', '#split-yaw-num', '#modal-split-yaw', '#modal-split-yaw-num'],
+        ['pitch', '#split-pitch', '#split-pitch-num', '#modal-split-pitch', '#modal-split-pitch-num'],
+        ['roll', '#split-roll', '#split-roll-num', '#modal-split-roll', '#modal-split-roll-num']
       ];
       pairs.forEach(([axis, ...selectors]) => {
         selectors.forEach(sel => { const el = Dom.q(sel); if (el) el.value = values[axis]; });
@@ -2764,16 +2865,29 @@
       AppStore.state.splitOrientation = values;
       syncSplitOrientationLabels();
       if (options.invalidate !== false) invalidateSplitOrientationOutputs();
-      if (options.render !== false) { renderSplitOrientationPreview(); }
+      if (options.render !== false) { 
+          renderSplitOrientationPreview(); 
+          // 檢查如果全螢幕預覽正開著，也要同步重新繪製高解析度畫面
+          const modal = Dom.q('#seam-fullscreen-modal');
+          if (modal && !modal.classList.contains('hidden')) {
+              const container = Dom.q('#seam-fullscreen-container');
+              const canvas = renderSplitOrientationCanvas(2048);
+              if (canvas && container) {
+                  container.innerHTML = '';
+                  canvas.className = 'max-w-full max-h-full object-contain rounded-xl shadow-[0_0_40px_rgba(0,0,0,0.8)] border border-white/20';
+                  container.appendChild(canvas);
+              }
+          }
+      }
       return values;
     }
 
     function syncSplitOrientationLabels() {
       const o = getSplitOrientationSettings();
       const targets = [
-        ['yaw', o.yaw, '#split-yaw-num'],
-        ['pitch', o.pitch, '#split-pitch-num'],
-        ['roll', o.roll, '#split-roll-num']
+        ['yaw', o.yaw, '#split-yaw-num', '#modal-split-yaw-num'],
+        ['pitch', o.pitch, '#split-pitch-num', '#modal-split-pitch-num'],
+        ['roll', o.roll, '#split-roll-num', '#modal-split-roll-num']
       ];
       targets.forEach(([, value, ...selectors]) => {
         selectors.forEach(sel => {
