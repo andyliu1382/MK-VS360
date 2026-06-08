@@ -2241,10 +2241,11 @@
           <div id="preview-panel-body" class="hidden mt-8 space-y-6 border-t border-[var(--tw-border-color)] pt-8">
             
             <!-- Scene Manager -->
-            <div class="inner-panel p-6 space-y-5 relative z-10">
+            <div id="scene-manager-panel" class="inner-panel p-6 space-y-5 relative z-10 transition-all duration-300 border-2 border-transparent">
               <div class="flex flex-wrap items-center justify-between gap-4 border-b border-[var(--tw-border-color)] pb-4">
                 <div class="flex items-center gap-3">
                   <b class="text-[16px] font-extrabold text-[var(--ink)]">場景管理器 (Scene Manager)</b>
+                  <span class="text-[12px] text-[var(--muted)] font-bold hidden sm:inline-block bg-[var(--tw-bg-surface-light)] px-2 py-1 rounded border border-[var(--tw-border-color)]">支援拖曳上傳</span>
                 </div>
                 <label class="btn btn-primary btn-sm shadow-lg cursor-pointer">
                   + 匯入其他場景
@@ -2550,12 +2551,16 @@
         await ExportService.downloadFloatResult(final, 'edited_equirectangular_2x1', Dom.q('#final-format').value);
       });
 
-      Dom.q('#input-add-scene')?.addEventListener('change', async (e) => {
-        const files = Array.from(e.target.files || []);
-        if (files.length === 0) return;
+      const handleAddScenes = (files) => {
+        if (!files || files.length === 0) return;
+        const validFiles = files.filter(f => f.type === 'image/jpeg' || f.type === 'image/png');
+        if(validFiles.length === 0) {
+             UI.toast('僅支援 JPG 或 PNG 格式', 'warn');
+             return;
+        }
         
         const newScenes = [];
-        for (const file of files) {
+        for (const file of validFiles) {
             newScenes.push({
                 id: 'scene_' + Date.now() + Math.random().toString(36).substr(2, 5),
                 name: file.name.replace(/\.[^/.]+$/, ""),
@@ -2564,9 +2569,49 @@
         }
         AppStore.set({ additionalScenes: [...AppStore.state.additionalScenes, ...newScenes] });
         UI.renderSceneList();
-        UI.toast(`成功匯入 ${files.length} 個場景`, 'success');
+        UI.toast(`成功匯入 ${validFiles.length} 個場景`, 'success');
+        
+        // === 新增：自動展開並切換到剛剛上傳的場景 ===
+        if (newScenes.length > 0) {
+            const firstNewSceneId = newScenes[0].id;
+            Viewer3D.currentSceneId = firstNewSceneId;
+            
+            const body = Dom.q('#preview-panel-body');
+            // 如果面板還沒展開，呼叫 expandPreviewPanel (裡面會自動讀取 currentSceneId)
+            if (body && body.classList.contains('hidden')) {
+                expandPreviewPanel();
+            } else {
+                // 如果已經展開了，直接呼叫 Viewer3D 切換場景，並將畫面捲動過去
+                Viewer3D.switchScene(firstNewSceneId);
+                scrollToStep('viewer-canvas-wrap', true);
+            }
+        }
+      };
+
+      Dom.q('#input-add-scene')?.addEventListener('change', async (e) => {
+        handleAddScenes(Array.from(e.target.files || []));
         e.target.value = '';
       });
+
+      const scenePanel = Dom.q('#scene-manager-panel');
+      if (scenePanel) {
+          scenePanel.addEventListener('dragover', e => { 
+              e.preventDefault(); 
+              scenePanel.style.borderColor = 'var(--brand)';
+              scenePanel.style.boxShadow = '0 0 0 4px var(--brand-glow), inset 0 0 20px rgba(0,0,0,0.2)';
+          });
+          scenePanel.addEventListener('dragleave', e => { 
+              e.preventDefault(); 
+              scenePanel.style.borderColor = 'transparent';
+              scenePanel.style.boxShadow = '';
+          });
+          scenePanel.addEventListener('drop', e => {
+              e.preventDefault(); e.stopPropagation();
+              scenePanel.style.borderColor = 'transparent';
+              scenePanel.style.boxShadow = '';
+              handleAddScenes(Array.from(e.dataTransfer.files || []));
+          });
+      }
 
       Dom.q('#btn-auto-rotate')?.addEventListener('click', () => Viewer3D.toggleAutoRotate());
       
