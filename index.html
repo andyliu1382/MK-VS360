@@ -748,7 +748,7 @@
         const val = (x, y, c) => src[(Math.max(0, Math.min(height - 1, y)) * width + ((x % width) + width) % width) * 4 + c];
         for (let c = 0; c < 4; c++) {
           const c00 = val(x0, y0, c), c10 = val(x1, y0, c), c01 = val(x0, y1, c), c11 = val(x1, y1, c);
-          out[outIdx + c] = c00 * (1 - wx) * (1 - wy) + c10 * wx * (1 - wy) + c01 * (1 - wx) * wy + c11 * wx * wy;
+          out[outIdx + c] = c00 * (1 - wx) * (1 - wy) + c01 * (1 - wx) * wy + c11 * wx * wy;
         }
       }
       function sampleBilinearRect(src, width, height, px, py, minX, minY, maxX, maxY, out, outIdx) {
@@ -2035,7 +2035,7 @@
       const btn = Dom.q('#btn-toggle-preview-panel');
       if (body && body.classList.contains('hidden')) {
         body.classList.remove('hidden');
-        btn.innerHTML = '向上收合 360° 預覽面板';
+        btn.innerHTML = '☝️ 向上收合 360° 獨立預覽面板';
         
         if (Viewer3D.getAllScenes().length === 0) {
             UI.toast('目前尚無場景，您可手動匯入全景圖。', 'info');
@@ -2043,6 +2043,15 @@
             Viewer3D.loadFromCurrent();
             scrollToStep('viewer-canvas-wrap', true);
         }
+      }
+    }
+
+    function collapsePreviewPanel() {
+      const body = Dom.q('#preview-panel-body');
+      const btn = Dom.q('#btn-toggle-preview-panel');
+      if (body && !body.classList.contains('hidden')) {
+        body.classList.add('hidden');
+        btn.innerHTML = '👇 展開 360° 獨立預覽面板';
       }
     }
 
@@ -2537,7 +2546,12 @@
       });
 
       Dom.q('#btn-toggle-preview-panel').addEventListener('click', (e) => {
-        expandPreviewPanel();
+        const body = Dom.q('#preview-panel-body');
+        if (body && body.classList.contains('hidden')) {
+            expandPreviewPanel();
+        } else {
+            collapsePreviewPanel();
+        }
       });
 
       bindDropzone(Dom.q('#source-dropzone'), Dom.q('#source-file'), async file => {
