@@ -284,6 +284,9 @@
       backdrop-filter: blur(16px); -webkit-backdrop-filter: blur(16px); box-sizing: border-box;
       box-shadow: var(--ctrl-shadow);
     }
+    /* 隱藏數字輸入框的上下箭頭，讓介面更乾淨 */
+    input[type=number]::-webkit-inner-spin-button, input[type=number]::-webkit-outer-spin-button { -webkit-appearance: none; margin: 0; }
+    input[type=number] { -moz-appearance: textfield; }
     select.ctrl option { background: var(--ctrl-opt-bg); color: var(--ink); }
     select.ctrl:focus, input.ctrl:focus, textarea.ctrl:focus { outline: none; border-color: var(--brand); background: var(--ctrl-bg-focus); box-shadow: var(--ctrl-shadow-focus); transform: scale(1.01); }
 
@@ -2089,25 +2092,45 @@
               </details>
               <div class="orientation-grid">
                 <div class="range-row">
-                  <label>Yaw 旋轉 <span><span id="split-yaw-value">0</span>°</span></label>
-                  <div class="orientation-control-line">
-                    <input id="split-yaw" type="range" min="-180" max="180" value="0" step="1">
-                    <input id="split-yaw-num" class="orientation-number hidden" type="number">
+                  <div class="flex items-center justify-between mb-3 gap-2">
+                    <label class="!flex !flex-col !items-start !gap-1 !mb-0 shrink-0">
+                      <span class="text-[14.5px] leading-none text-[var(--ink)]">Yaw</span>
+                      <span class="text-[11.5px] leading-none text-[var(--muted)] font-bold tracking-widest">旋轉</span>
+                    </label>
+                    <div class="relative w-[76px] shrink-0">
+                      <input id="split-yaw-num" class="ctrl w-full pr-5 text-right font-mono !py-1 !px-2 !text-[13px]" type="number" min="-180" max="180" value="0">
+                      <span class="absolute right-2 top-1/2 -translate-y-1/2 text-[var(--muted)] font-bold text-[12px] pointer-events-none">°</span>
+                    </div>
                   </div>
+                  <input id="split-yaw" type="range" min="-180" max="180" value="0" step="1" class="w-full cursor-pointer mt-1">
                 </div>
+                
                 <div class="range-row">
-                  <label>Pitch 上下 <span><span id="split-pitch-value">0</span>°</span></label>
-                  <div class="orientation-control-line">
-                    <input id="split-pitch" type="range" min="-75" max="75" value="0" step="1">
-                    <input id="split-pitch-num" class="orientation-number hidden" type="number">
+                  <div class="flex items-center justify-between mb-3 gap-2">
+                    <label class="!flex !flex-col !items-start !gap-1 !mb-0 shrink-0">
+                      <span class="text-[14.5px] leading-none text-[var(--ink)]">Pitch</span>
+                      <span class="text-[11.5px] leading-none text-[var(--muted)] font-bold tracking-widest">上下</span>
+                    </label>
+                    <div class="relative w-[76px] shrink-0">
+                      <input id="split-pitch-num" class="ctrl w-full pr-5 text-right font-mono !py-1 !px-2 !text-[13px]" type="number" min="-75" max="75" value="0">
+                      <span class="absolute right-2 top-1/2 -translate-y-1/2 text-[var(--muted)] font-bold text-[12px] pointer-events-none">°</span>
+                    </div>
                   </div>
+                  <input id="split-pitch" type="range" min="-75" max="75" value="0" step="1" class="w-full cursor-pointer mt-1">
                 </div>
+                
                 <div class="range-row">
-                  <label>Roll 地平線 <span><span id="split-roll-value">0</span>°</span></label>
-                  <div class="orientation-control-line">
-                    <input id="split-roll" type="range" min="-180" max="180" value="0" step="1">
-                    <input id="split-roll-num" class="orientation-number hidden" type="number">
+                  <div class="flex items-center justify-between mb-3 gap-2">
+                    <label class="!flex !flex-col !items-start !gap-1 !mb-0 shrink-0">
+                      <span class="text-[14.5px] leading-none text-[var(--ink)]">Roll</span>
+                      <span class="text-[11.5px] leading-none text-[var(--muted)] font-bold tracking-widest">地平線</span>
+                    </label>
+                    <div class="relative w-[76px] shrink-0">
+                      <input id="split-roll-num" class="ctrl w-full pr-5 text-right font-mono !py-1 !px-2 !text-[13px]" type="number" min="-180" max="180" value="0">
+                      <span class="absolute right-2 top-1/2 -translate-y-1/2 text-[var(--muted)] font-bold text-[12px] pointer-events-none">°</span>
+                    </div>
                   </div>
+                  <input id="split-roll" type="range" min="-180" max="180" value="0" step="1" class="w-full cursor-pointer mt-1">
                 </div>
               </div>
               <div class="control-group flex gap-4">
@@ -2476,10 +2499,21 @@
         ['yaw', '#split-yaw', '#split-yaw-num'],
         ['pitch', '#split-pitch', '#split-pitch-num'],
         ['roll', '#split-roll', '#split-roll-num']
-      ].forEach(([axis, ...selectors]) => {
-        selectors.forEach(sel => {
-          Dom.q(sel)?.addEventListener('input', e => syncOrientationFromControl(axis, e.target.value, false));
-          Dom.q(sel)?.addEventListener('change', e => syncOrientationFromControl(axis, e.target.value, true));
+      ].forEach(([axis, sliderSel, numSel]) => {
+        // Slider 綁定 (即時預覽與更新)
+        Dom.q(sliderSel)?.addEventListener('input', e => syncOrientationFromControl(axis, e.target.value, false));
+        Dom.q(sliderSel)?.addEventListener('change', e => syncOrientationFromControl(axis, e.target.value, true));
+        
+        // Number Input 綁定 (智慧防呆，允許使用者慢慢打出負號)
+        Dom.q(numSel)?.addEventListener('input', e => {
+            const val = e.target.value;
+            if (val === '' || val === '-') return; // 避免在輸入負號的瞬間被強制歸零
+            syncOrientationFromControl(axis, val, false);
+        });
+        Dom.q(numSel)?.addEventListener('change', e => {
+            let val = e.target.value;
+            if (val === '' || val === '-') val = '0';
+            syncOrientationFromControl(axis, val, true);
         });
       });
       const resetOrientation = () => {
@@ -2737,9 +2771,9 @@
     function syncSplitOrientationLabels() {
       const o = getSplitOrientationSettings();
       const targets = [
-        ['yaw', o.yaw, '#split-yaw-value', '#split-yaw-num'],
-        ['pitch', o.pitch, '#split-pitch-value', '#split-pitch-num'],
-        ['roll', o.roll, '#split-roll-value', '#split-roll-num']
+        ['yaw', o.yaw, '#split-yaw-num'],
+        ['pitch', o.pitch, '#split-pitch-num'],
+        ['roll', o.roll, '#split-roll-num']
       ];
       targets.forEach(([, value, ...selectors]) => {
         selectors.forEach(sel => {
