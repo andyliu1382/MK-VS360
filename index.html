@@ -559,13 +559,13 @@
   <!-- Share Modal (Hidden by default) -->
   <div id="share-modal" class="fixed inset-0 z-[9999] hidden flex items-center justify-center bg-black/60 backdrop-blur-sm">
     <div class="glass-panel p-8 w-[90%] max-w-lg rounded-2xl shadow-2xl text-[var(--ink)]">
-      <h3 class="text-2xl font-bold mb-4 text-[var(--ink)]">🎉 發佈成功！</h3>
-      <p class="text-[var(--muted)] mb-4 font-semibold">您的 360° 導覽已上傳至雲端。複製以下網址分享給其他人觀看：</p>
+      <h3 class="text-2xl font-bold mb-4 text-[var(--ink)]" data-i18n="shareSuccess">🎉 發佈成功！</h3>
+      <p class="text-[var(--muted)] mb-4 font-semibold" data-i18n="shareDesc">您的 360° 導覽已上傳至雲端。複製以下網址分享給其他人觀看：</p>
       <div class="flex gap-2 mb-6">
         <input type="text" id="share-url-input" class="ctrl flex-1 font-mono text-sm" readonly>
-        <button id="btn-copy-url" class="btn btn-primary whitespace-nowrap">複製網址</button>
+        <button id="btn-copy-url" class="btn btn-primary whitespace-nowrap" data-i18n="copyUrl">複製網址</button>
       </div>
-      <button id="btn-close-share" class="btn btn-neutral w-full">關閉</button>
+      <button id="btn-close-share" class="btn btn-neutral w-full" data-i18n="close">關閉</button>
     </div>
   </div>
 
@@ -573,9 +573,9 @@
   <div id="seam-fullscreen-modal" class="fixed inset-0 z-[10000] hidden flex flex-col bg-black/95 backdrop-blur-xl transition-opacity duration-300 opacity-0">
      <div class="flex items-center justify-between p-4 md:p-6 bg-gradient-to-b from-black/80 to-transparent relative z-10 pointer-events-none">
          <div class="text-white font-bold flex items-center gap-4">
-            <span class="text-lg drop-shadow-md">接縫檢查 (大圖預覽)</span>
+            <span class="text-lg drop-shadow-md" data-i18n="seamCheck">接縫檢查 (大圖預覽)</span>
          </div>
-         <button id="btn-close-seam-fullscreen" class="btn btn-neutral bg-white/10 text-white border-white/20 hover:bg-white/20 shadow-md pointer-events-auto">關閉 (Esc)</button>
+         <button id="btn-close-seam-fullscreen" class="btn btn-neutral bg-white/10 text-white border-white/20 hover:bg-white/20 shadow-md pointer-events-auto" data-i18n="closeEsc">關閉 (Esc)</button>
      </div>
      <div class="flex-1 flex items-center justify-center p-4 pb-48 md:p-8 md:pb-40 overflow-hidden relative" id="seam-fullscreen-container">
          <!-- Canvas 會動態注入於此 -->
@@ -635,10 +635,15 @@
     ☀️ 切換亮色
   </button>
 
+  <!-- 語言切換按鈕 -->
+  <button id="lang-toggle-btn" class="fixed top-6 right-6 z-[60] glass-panel px-4 py-3 rounded-full font-bold text-sm text-[var(--ink)] shadow-md transition-all hover:scale-105 active:scale-95 flex items-center gap-2 border border-[var(--glass-border)] hover:bg-[var(--tw-bg-surface)]">
+    🌐 EN
+  </button>
+
   <!-- 自動儲存狀態提示 -->
-  <div id="auto-save-indicator" class="fixed top-6 right-6 z-[60] glass-panel px-5 py-3 rounded-full opacity-0 pointer-events-none flex items-center gap-3">
+  <div id="auto-save-indicator" class="fixed top-[72px] right-6 z-[60] glass-panel px-5 py-3 rounded-full opacity-0 pointer-events-none flex items-center gap-3">
     <div class="w-3 h-3 rounded-full bg-emerald-500 shadow-[0_0_12px_rgba(16,185,129,0.8)]"></div>
-    <span class="font-bold text-[var(--ink)]">已自動儲存草稿</span>
+    <span class="font-bold text-[var(--ink)]" data-i18n="autosaved">已自動儲存草稿</span>
   </div>
 
   <main id="app-main" class="max-w-6xl mx-auto space-y-10 hidden">
@@ -718,6 +723,16 @@
       accept: 'image/jpeg,image/png,.exr',
       previewMaxWidth: 1400
     });
+
+    function currentLang() {
+      return window._getCurrentLang ? window._getCurrentLang() : 'zh';
+    }
+    function i18nText(key, fallback = '') {
+      return window._i18nText ? window._i18nText(key, fallback) : fallback;
+    }
+    function i18nDynamic() {
+      return window._getDynamicI18n ? window._getDynamicI18n() : {};
+    }
 
     // ─── Web Worker ──────────────────────────────────────────────
     const WORKER_CODE = `
@@ -1391,7 +1406,7 @@
         const faces = await ProjectionEngine.equirectToFaces(asset, size, { orientation, onProgress });
         AppStore.set({ faces, sourceLayout: asset.layout, latestOutput: null, splitOrientation: orientation, hasDownloadedFaces: false });
         UI.renderFaceGrid();
-        UI.toast('已完成六面拆分。', 'success');
+        UI.toast(i18nText('toastFacesSplit', '已完成六面拆分。'), 'success');
         scrollToStep('step-faces-io', true);
       },
       async replaceFace(index, file) {
@@ -1461,7 +1476,7 @@
       getAllScenes() {
         const scenes = [];
         const hasMain = !AppStore.state.isMainSceneDeleted && (AppStore.state.finalEquirect || AppStore.state.composedCube || AppStore.state.sourceAsset);
-        if (hasMain) scenes.push({ id: 'main', name: '主場景 (Step 05 輸出)', isMain: true });
+        if (hasMain) scenes.push({ id: 'main', name: i18nText('mainSceneName', '主場景 (Step 05 輸出)'), isMain: true });
         if (AppStore.state.additionalScenes) scenes.push(...AppStore.state.additionalScenes);
         return scenes;
       },
@@ -1493,7 +1508,7 @@
         let url;
         if (target.id === 'main') {
             const asset = await this.assetForMainViewer();
-            if (!asset) { UI.toast('主場景尚未準備好', 'error'); return; }
+            if (!asset) { UI.toast(i18nText('toastMainNotReady', '主場景尚未準備好'), 'error'); return; }
             const canvas = ColorPipeline.float32ToCanvas(asset.floatData, asset.width, asset.height);
             if (Dom.q('#viewer-seam-guide')?.checked) drawEquirectSeamGuide(canvas);
             const blob = await new Promise(r => canvas.toBlob(r, 'image/jpeg', 0.9));
@@ -1507,6 +1522,7 @@
             if (this.currentUrl) URL.revokeObjectURL(this.currentUrl);
             this.currentUrl = url;
             this.updateMarkersForCurrentScene();
+            if (window._queueLangSync) window._queueLangSync();
         } else {
             this.currentUrl = url;
             
@@ -1517,19 +1533,19 @@
                     'zoom',
                     {
                         id: 'reset',
-                        title: '重設視角 (Reset View)',
+                        title: i18nText('psvResetTitle', '重設視角 (Reset View)'),
                         content: '<svg style="width:20px;height:20px;margin:0 auto;color:white;" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6"></path></svg>',
                         onClick: () => Viewer3D.reset()
                     },
                     {
                         id: 'record',
-                        title: '錄製 12s 影片 (Record Video)',
+                        title: i18nText('psvRecordTitle', '錄製 12s 影片 (Record Video)'),
                         content: '<svg style="width:20px;height:20px;margin:0 auto;color:white;" fill="none" stroke="currentColor" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10" stroke-width="2"></circle><circle cx="12" cy="12" r="4" fill="currentColor"></circle></svg>',
                         onClick: () => Viewer3D.recordVideo()
                     },
                     {
                         id: 'screenshot',
-                        title: '截圖 (Screenshot)',
+                        title: i18nText('psvScreenshotTitle', '截圖 (Screenshot)'),
                         content: '<svg style="width:20px;height:20px;margin:0 auto;color:white;" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 9a2 2 0 012-2h.93a2 2 0 001.664-.89l.812-1.22A2 2 0 0110.07 4h3.86a2 2 0 011.664.89l.812 1.22A2 2 0 0018.07 7H19a2 2 0 012 2v9a2 2 0 01-2 2H5a2 2 0 01-2-2V9z"></path><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 13a3 3 0 11-6 0 3 3 0 016 0z"></path></svg>',
                         onClick: () => Viewer3D.takeScreenshot()
                     },
@@ -1575,7 +1591,8 @@
                     this.showHotspotModal(hs);
                 }
             });
-            UI.toast('360° 預覽已載入。', 'success');
+            UI.toast(i18nText('toastViewerLoaded', '360° 預覽已載入。'), 'success');
+            if (window._queueLangSync) window._queueLangSync();
         }
       },
 
@@ -1601,35 +1618,35 @@
       },
 
       takeScreenshot() {
-          if (!this.viewer) { UI.toast('請先載入預覽', 'warn'); return; }
+          if (!this.viewer) { UI.toast(i18nText('toastLoadPreviewFirst', '請先載入預覽'), 'warn'); return; }
           try {
              if (this.viewer.renderer && typeof this.viewer.renderer.render === 'function') this.viewer.renderer.render();
              else if (this.viewer.renderer && this.viewer.renderer.renderer) this.viewer.renderer.renderer.render(this.viewer.renderer.scene, this.viewer.renderer.camera);
           } catch(e) {}
           
           const canvas = this.viewer.container.querySelector('canvas');
-          if (!canvas) { UI.toast('無法取得畫面', 'error'); return; }
+          if (!canvas) { UI.toast(i18nText('toastCanvasUnavailable', '無法取得畫面'), 'error'); return; }
           
           canvas.toBlob(blob => {
-              if (!blob) { UI.toast('截圖擷取失敗', 'error'); return; }
+              if (!blob) { UI.toast(i18nText('toastScreenshotFailed', '截圖擷取失敗'), 'error'); return; }
               const url = URL.createObjectURL(blob);
               const a = document.createElement('a'); a.href = url; a.download = `360_screenshot_${Date.now()}.jpg`;
               document.body.appendChild(a); a.click(); document.body.removeChild(a); URL.revokeObjectURL(url);
-              UI.toast('當前畫面已儲存', 'success');
+              UI.toast(i18nText('toastScreenshotSaved', '當前畫面已儲存'), 'success');
           }, 'image/jpeg', 0.95);
       },
       
       async recordVideo() {
-          if (!this.viewer) { UI.toast('請先載入預覽畫面', 'warn'); return; }
-          if (this.isRecording) { UI.toast('正在錄製中，請稍候...', 'warn'); return; }
-          if (!this.autorotatePlugin) { UI.toast('找不到 Autorotate 套件', 'error'); return; }
+          if (!this.viewer) { UI.toast(i18nText('toastLoadPreviewFirst', '請先載入預覽畫面'), 'warn'); return; }
+          if (this.isRecording) { UI.toast(i18nText('toastRecordingBusy', '正在錄製中，請稍候...'), 'warn'); return; }
+          if (!this.autorotatePlugin) { UI.toast(i18nText('toastAutorotateMissing', '找不到 Autorotate 套件'), 'error'); return; }
 
           const btnEl = this.viewer.container.querySelector('.psv-button--record');
           let overlayEl = this.viewer.container.querySelector('.psv-rec-overlay');
           
           try {
               this.isRecording = true;
-              if (btnEl) { btnEl.style.color = '#ef4444'; btnEl.classList.add('animate-pulse'); btnEl.title = '錄製中...'; }
+              if (btnEl) { btnEl.style.color = '#ef4444'; btnEl.classList.add('animate-pulse'); btnEl.title = i18nText('recordingTitle', '錄製中...'); }
               
               if (!overlayEl) {
                   overlayEl = document.createElement('div');
@@ -1637,7 +1654,7 @@
                   this.viewer.container.appendChild(overlayEl);
               }
               overlayEl.style.opacity = '0'; overlayEl.style.display = 'flex';
-              UI.toast('視角歸位中...', 'info');
+              UI.toast(i18nText('toastResettingView', '視角歸位中...'), 'info');
               
               await this.viewer.animate({ yaw: 0, pitch: 0, speed: '2rpm' });
               await new Promise(r => setTimeout(r, 500));
@@ -1669,13 +1686,13 @@
               this.autorotatePlugin.start();
               
               overlayEl.style.opacity = '1';
-              overlayEl.innerHTML = `<span class="w-3.5 h-3.5 rounded-full bg-red-500 animate-pulse shadow-[0_0_12px_rgba(239,68,68,0.9)]"></span> <span>錄製中 12s</span>`;
+              overlayEl.innerHTML = `<span class="w-3.5 h-3.5 rounded-full bg-red-500 animate-pulse shadow-[0_0_12px_rgba(239,68,68,0.9)]"></span> <span>${i18nText('recordingLabel', '錄製中')} 12s</span>`;
               
               let elapsed = 0;
               const interval = setInterval(() => {
                   elapsed += 1; const remaining = 12 - elapsed;
-                  if(btnEl) btnEl.title = `錄製中... ${remaining}s`;
-                  if(overlayEl) overlayEl.innerHTML = `<span class="w-3.5 h-3.5 rounded-full bg-red-500 animate-pulse shadow-[0_0_12px_rgba(239,68,68,0.9)]"></span> <span>錄製中 ${remaining}s</span>`;
+                  if(btnEl) btnEl.title = `${i18nText('recordingTitle', '錄製中...')} ${remaining}s`;
+                  if(overlayEl) overlayEl.innerHTML = `<span class="w-3.5 h-3.5 rounded-full bg-red-500 animate-pulse shadow-[0_0_12px_rgba(239,68,68,0.9)]"></span> <span>${i18nText('recordingLabel', '錄製中')} ${remaining}s</span>`;
               }, 1000);
               
               await new Promise(r => setTimeout(r, 12000));
@@ -1687,16 +1704,16 @@
               if(overlayEl) overlayEl.style.opacity = '0';
               recorder.stop();
               await stopPromise; 
-              UI.toast('影片錄製完成並已自動下載！', 'success');
+              UI.toast(i18nText('toastVideoDone', '影片錄製完成並已自動下載！'), 'success');
               setTimeout(() => { if(overlayEl) overlayEl.style.display = 'none'; }, 300);
               
           } catch (err) {
-              console.error("錄影失敗:", err);
-              UI.toast('錄製失敗: ' + err.message, 'error');
+              console.error("Recording failed:", err);
+              UI.toast(i18nText('toastRecordFailed', '錄製失敗: ') + err.message, 'error');
               if(overlayEl) overlayEl.style.display = 'none';
           } finally {
               this.isRecording = false;
-              if (btnEl) { btnEl.style.color = ''; btnEl.classList.remove('animate-pulse'); btnEl.title = '錄製 12s 影片 (Record Video)'; }
+              if (btnEl) { btnEl.style.color = ''; btnEl.classList.remove('animate-pulse'); btnEl.title = i18nText('psvRecordTitle', '錄製 12s 影片 (Record Video)'); }
           }
       },
 
@@ -1706,20 +1723,20 @@
          
          if (hs.type === 'teleport') {
              const targetScene = this.getAllScenes().find(s => s.id === hs.targetSceneId);
-             const targetName = targetScene ? targetScene.name : '未知場景';
+             const targetName = targetScene ? targetScene.name : i18nText('unknownScene', '未知場景');
              
-             tooltipHtml += `<div style="font-size:13px; font-weight:800; color:#ff9f0a; margin-bottom:6px; display:flex; align-items:center; gap:6px;"><div style="width:5px; height:12px; background:#ff9f0a; border-radius:2px;"></div> 場景傳送門</div>`;
+             tooltipHtml += `<div style="font-size:13px; font-weight:800; color:#ff9f0a; margin-bottom:6px; display:flex; align-items:center; gap:6px;"><div style="width:5px; height:12px; background:#ff9f0a; border-radius:2px;"></div> ${i18nText('tooltipTeleport', 'Scene Portal')}</div>`;
              tooltipHtml += `<strong style="font-size:18px; font-weight:800; color:#fff; display:block; margin-bottom:16px; word-break:break-all;">${hs.title || targetName}</strong>`;
-             tooltipHtml += `<button style="box-sizing:border-box; display:block; width:100%; padding:10px 16px; border-radius:12px; font-size:14px; font-weight:700; background:#2c3e50; color:#fff; border:1px solid rgba(255,255,255,0.1); box-shadow:0 4px 12px rgba(0,0,0,0.3); transition:all 0.2s; cursor:pointer;" onmouseover="this.style.background='#3b526a'" onmouseout="this.style.background='#2c3e50'" onclick="window.isTeleporting = true; setTimeout(()=>window.isTeleporting=false, 500); window.dispatchEvent(new CustomEvent('trigger-teleport', {detail: '${hs.targetSceneId}'})); event.stopPropagation();">進入場景 ➔</button>`;
+             tooltipHtml += `<button style="box-sizing:border-box; display:block; width:100%; padding:10px 16px; border-radius:12px; font-size:14px; font-weight:700; background:#2c3e50; color:#fff; border:1px solid rgba(255,255,255,0.1); box-shadow:0 4px 12px rgba(0,0,0,0.3); transition:all 0.2s; cursor:pointer;" onmouseover="this.style.background='#3b526a'" onmouseout="this.style.background='#2c3e50'" onclick="window.isTeleporting = true; setTimeout(()=>window.isTeleporting=false, 500); window.dispatchEvent(new CustomEvent('trigger-teleport', {detail: '${hs.targetSceneId}'})); event.stopPropagation();">${i18nText('enterScene', '進入場景')} ➔</button>`;
              
          } else {
              if (hs.image) {
                  tooltipHtml += `<div style="width:100%; height:140px; border-radius:12px; margin-bottom:14px; background-image:url('${hs.image}'); background-size:cover; background-position:center; box-shadow: 0 4px 12px rgba(0,0,0,0.3);"></div>`;
              }
-             tooltipHtml += `<div style="font-size:13px; font-weight:800; color:#5e9cff; margin-bottom:6px; display:flex; align-items:center; gap:6px;"><div style="width:5px; height:12px; background:#5e9cff; border-radius:2px;"></div> 資訊標籤</div>`;
+             tooltipHtml += `<div style="font-size:13px; font-weight:800; color:#5e9cff; margin-bottom:6px; display:flex; align-items:center; gap:6px;"><div style="width:5px; height:12px; background:#5e9cff; border-radius:2px;"></div> ${i18nText('tooltipInfo', 'Info Label')}</div>`;
              tooltipHtml += `<strong style="font-size:18px; font-weight:800; color:#fff; display:block; word-break:break-all;">${hs.title}</strong>`;
              if (hs.description) tooltipHtml += `<div style="opacity:0.85; font-size:14.5px; margin-top:8px; white-space:pre-wrap; line-height:1.6; color:#f0f0f5;">${hs.description}</div>`;
-             if (hs.link) tooltipHtml += `<a href="${hs.link}" target="_blank" style="color:#5e9cff; text-decoration:underline; font-size:14px; font-weight:700; margin-top:12px; display:inline-block; padding:4px 0;" onpointerdown="event.stopPropagation()">前往連結 ↗</a>`;
+             if (hs.link) tooltipHtml += `<a href="${hs.link}" target="_blank" style="color:#5e9cff; text-decoration:underline; font-size:14px; font-weight:700; margin-top:12px; display:inline-block; padding:4px 0;" onpointerdown="event.stopPropagation()">${i18nText('openLink', '前往連結')} ↗</a>`;
          }
 
          return {
@@ -1745,7 +1762,7 @@
          };
       },
       loadHotspotImage(file) {
-         if(!file.type.startsWith('image/')) { UI.toast('請上傳圖片', 'error'); return; }
+         if(!file.type.startsWith('image/')) { UI.toast(i18nText('toastUploadImage', '請上傳圖片'), 'error'); return; }
          const reader = new FileReader();
          reader.onload = (e) => {
              this.tempHotspotImage = e.target.result;
@@ -1770,7 +1787,7 @@
         const availableScenes = this.getAllScenes().filter(s => s.id !== this.currentSceneId);
         targetSelect.innerHTML = availableScenes.map(s => `<option value="${s.id}">${s.name}</option>`).join('');
         if(availableScenes.length === 0) {
-            targetSelect.innerHTML = `<option value="">-- 沒有其他場景可選 --</option>`;
+            targetSelect.innerHTML = `<option value="">-- ${i18nText('noOtherScenes', '沒有其他場景可選')} --</option>`;
         }
         
         if (hs) {
@@ -1801,6 +1818,8 @@
         }
         
         Dom.q('input[name="hs-type"]:checked').dispatchEvent(new Event('change'));
+        if (window._queueLangSync) window._queueLangSync();
+        else if (window._applyLang) window._applyLang(window._getCurrentLang ? window._getCurrentLang() : 'zh');
         setTimeout(()=> Dom.q('#hs-input-title').focus(), 50);
       },
       hideHotspotModal() {
@@ -1815,8 +1834,8 @@
         const link = Dom.q('#hs-input-link').value.trim();
         const targetSceneId = Dom.q('#hs-input-target-scene').value;
         
-        if (type === 'teleport' && !targetSceneId) { UI.toast("請選擇目標傳送場景", "warn"); return; }
-        if (type === 'info' && !title) { UI.toast("標題不能為空", "warn"); return; }
+        if (type === 'teleport' && !targetSceneId) { UI.toast(i18nText('toastSelectTargetScene', '請選擇目標傳送場景'), "warn"); return; }
+        if (type === 'info' && !title) { UI.toast(i18nText('toastTitleRequired', '標題不能為空'), "warn"); return; }
         
         const hsData = {
            yaw: this.tempHotspotPos?.yaw,
@@ -1838,13 +1857,13 @@
               hsData.id = this.editingHotspotId;
               AppStore.state.hotspots[hsIndex] = hsData;
               this.markersPlugin.updateMarker(this.formatMarker(hsData));
-              UI.toast("熱點已更新", "success");
+              UI.toast(i18nText('toastHotspotUpdated', '熱點已更新'), "success");
            }
         } else if (this.tempHotspotPos) {
            hsData.id = 'hs-' + Date.now();
            AppStore.state.hotspots.push(hsData);
            this.markersPlugin.addMarker(this.formatMarker(hsData));
-           UI.toast("新增熱點成功！", "success");
+           UI.toast(i18nText('toastHotspotAdded', '新增熱點成功！'), "success");
         }
         this.hideHotspotModal();
         if(window.schedulePersist) window.schedulePersist();
@@ -1853,7 +1872,7 @@
         if (this.editingHotspotId) {
            AppStore.state.hotspots = AppStore.state.hotspots.filter(h => h.id !== this.editingHotspotId);
            this.markersPlugin.removeMarker(this.editingHotspotId);
-           UI.toast("熱點已刪除", "success");
+           UI.toast(i18nText('toastHotspotDeleted', '熱點已刪除'), "success");
         }
         this.hideHotspotModal();
         if(window.schedulePersist) window.schedulePersist();
@@ -1867,7 +1886,11 @@
         AppStore.state.viewerAutoRotate = !AppStore.state.viewerAutoRotate; 
         const autoBtn = Dom.q('#btn-auto-rotate');
         if (autoBtn) {
-          autoBtn.textContent = `自動旋轉：${AppStore.state.viewerAutoRotate ? '開' : '關'}`;
+          const lang = window._getCurrentLang ? window._getCurrentLang() : 'zh';
+          const label = i18nText('s06autoRotate', lang === 'en' ? 'Auto Rotate' : '自動旋轉');
+          const onStr = i18nText('s06on', lang === 'en' ? 'On' : '開');
+          const offStr = i18nText('s06off', lang === 'en' ? 'Off' : '關');
+          autoBtn.textContent = `${label}：${AppStore.state.viewerAutoRotate ? onStr : offStr}`;
           autoBtn.classList.toggle('is-active', !!AppStore.state.viewerAutoRotate);
         }
         if(AppStore.state.viewerAutoRotate) {
@@ -1896,7 +1919,14 @@
     function setStepState(step, status = 'ready') {
       const badge = Dom.q(`[data-step-status="${step}"]`);
       if (badge) {
-        const map = { ready: ['待處理', ''], active: ['進行中', 'is-active'], done: ['完成', 'is-done'], warn: ['需確認', 'is-warn'], independent: ['隨時可用', 'is-active'] };
+        const d = i18nDynamic();
+        const map = {
+          ready: [d.statusReady || '待處理', ''],
+          active: [d.statusActive || '進行中', 'is-active'],
+          done: [d.statusDone || '完成', 'is-done'],
+          warn: [d.statusWarn || '需確認', 'is-warn'],
+          independent: [d.statusIndependent || d.s06badge || '隨時可用', 'is-active']
+        };
         const [label, cls] = map[status] || map.ready;
         badge.textContent = label; badge.className = `step-status-badge ${cls}`;
       }
@@ -1916,13 +1946,14 @@
     }
 
     function renderProgress() {
+      const progressSteps = i18nDynamic().progressSteps || ['上傳全景圖','轉換六面','下載圖檔','重傳編輯','合併轉換','360° 預覽'];
       const steps = [
-        { key: 'upload',         no: '01', label: '上傳全景圖' },
-        { key: 'convert',        no: '02', label: '轉換六面'   },
-        { key: 'download',       no: '03', label: '下載圖檔'   },
-        { key: 'reupload',       no: '04', label: '重傳編輯'   },
-        { key: 'merge',          no: '05', label: '合併轉換'   },
-        { key: 'preview',        no: '06', label: '360° 預覽'  }
+        { key: 'upload',         no: '01', label: progressSteps[0] },
+        { key: 'convert',        no: '02', label: progressSteps[1] },
+        { key: 'download',       no: '03', label: progressSteps[2] },
+        { key: 'reupload',       no: '04', label: progressSteps[3] },
+        { key: 'merge',          no: '05', label: progressSteps[4] },
+        { key: 'preview',        no: '06', label: progressSteps[5] }
       ];
       const targets = [
         'step-upload', 'step-convert', 'step-faces-io',
@@ -1953,6 +1984,7 @@
       const grid = Dom.q('#face-editor-grid');
       if (!grid) return;
       grid.innerHTML = '';
+      const d = i18nDynamic();
       CONFIG.faceLabels.forEach((label, index) => {
         const face = AppStore.state.faces[index];
         const card = Dom.el('article', 'face-card');
@@ -1966,24 +1998,24 @@
                 ${face ? `<span style="margin:0 6px;opacity:0.5">•</span><b>${face.width} × ${face.height}</b>` : ''}
               </div>
             </div>
-            <span style="font-size:11px;font-weight:800;padding:6px 14px;border-radius:99px;background:${face ? 'var(--pnav-done)' : 'var(--tw-bg-surface-light)'};color:${face ? '#fff' : 'var(--muted)'};letter-spacing:0.02em;box-shadow:inset 0 1px 1px var(--tw-border-color), 0 2px 6px rgba(0,0,0,0.2);border:1px solid var(--tw-border-color);">${face ? '✓ 已載入' : '空槽'}</span>
+            <span style="font-size:11px;font-weight:800;padding:6px 14px;border-radius:99px;background:${face ? 'var(--pnav-done)' : 'var(--tw-bg-surface-light)'};color:${face ? '#fff' : 'var(--muted)'};letter-spacing:0.02em;box-shadow:inset 0 1px 1px var(--tw-border-color), 0 2px 6px rgba(0,0,0,0.2);border:1px solid var(--tw-border-color);">${face ? (d.faceLoaded || '✓ 已載入') : (d.faceEmpty || '空槽')}</span>
           </div>
           <div class="aspect-square checker" style="position:relative; background-color: var(--chk-bg);">
             <canvas id="face-canvas-${index}" style="position:absolute;inset:0;width:100%;height:100%;object-fit:cover"></canvas>
-            ${face ? '' : `<div style="position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;color:var(--muted);font-size:14px;gap:10px;font-weight:700;"><svg class="w-10 h-10 opacity-50 text-brand" fill="none" stroke="currentColor" viewBox="0 0 24 24" style="filter:drop-shadow(0 4px 8px var(--brand-glow));"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12"></path></svg>等待上傳</div>`}
+            ${face ? '' : `<div style="position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;color:var(--muted);font-size:14px;gap:10px;font-weight:700;"><svg class="w-10 h-10 opacity-50 text-brand" fill="none" stroke="currentColor" viewBox="0 0 24 24" style="filter:drop-shadow(0 4px 8px var(--brand-glow));"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12"></path></svg>${d.faceWait || '等待上傳'}</div>`}
           </div>
           <div class="face-card-footer">
             <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px">
               <label class="btn btn-primary btn-sm" id="label-replace-${index}" style="justify-content:center;cursor:pointer">
-                <span id="face-btn-text-${index}">上傳 / 替換</span>
+                <span id="face-btn-text-${index}">${d.faceUpload || '上傳 / 替換'}</span>
                 <input type="file" class="hidden face-replace" data-face="${index}" accept="${CONFIG.accept}">
               </label>
-              <button class="btn btn-success btn-sm face-download" data-face="${index}" ${face ? '' : 'disabled'}>↓ 下載</button>
+              <button class="btn btn-success btn-sm face-download" data-face="${index}" ${face ? '' : 'disabled'}>${d.faceDl || '↓ 下載'}</button>
             </div>
             <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px">
-              <button class="btn btn-neutral btn-xs face-action" data-action="rotate" data-face="${index}">旋轉 90°</button>
-              <button class="btn btn-neutral btn-xs face-action" data-action="flipH" data-face="${index}">水平翻</button>
-              <button class="btn btn-neutral btn-xs face-action" data-action="flipV" data-face="${index}">垂直翻</button>
+              <button class="btn btn-neutral btn-xs face-action" data-action="rotate" data-face="${index}">${d.faceRot || '旋轉 90°'}</button>
+              <button class="btn btn-neutral btn-xs face-action" data-action="flipH" data-face="${index}">${d.faceFlipH || '水平翻'}</button>
+              <button class="btn btn-neutral btn-xs face-action" data-action="flipV" data-face="${index}">${d.faceFlipV || '垂直翻'}</button>
             </div>
           </div>`;
         grid.appendChild(card);
@@ -1999,7 +2031,7 @@
         if (!listContainer) return;
         
         if (scenes.length === 0) {
-            listContainer.innerHTML = '<span class="text-[13.5px] text-[var(--muted)] font-bold py-2">目前尚無場景。請先完成 Step 05，或手動匯入場景。</span>';
+            listContainer.innerHTML = `<span class="text-[13.5px] text-[var(--muted)] font-bold py-2">${i18nText('sceneListEmpty', '目前尚無場景。請先完成 Step 05，或手動匯入場景。')}</span>`;
             return;
         }
 
@@ -2012,7 +2044,7 @@
                   ? '<span class="text-[10px] font-extrabold bg-black/30 px-1.5 py-0.5 rounded text-white/90 uppercase tracking-wider ml-1">Main</span>' 
                   : ''
                 }
-                <button class="delete-scene ml-auto shrink-0 w-5 h-5 flex items-center justify-center rounded-full bg-black/20 hover:bg-red-500 hover:text-white transition-colors" data-scene-id="${s.id}" title="移除場景">✕</button>
+                <button class="delete-scene ml-auto shrink-0 w-5 h-5 flex items-center justify-center rounded-full bg-black/20 hover:bg-red-500 hover:text-white transition-colors" data-scene-id="${s.id}" title="${i18nText('removeScene', '移除場景')}">✕</button>
               </div>
             `;
         }).join('');
@@ -2068,10 +2100,12 @@
       const btn = Dom.q('#btn-toggle-preview-panel');
       if (body && body.classList.contains('hidden')) {
         body.classList.remove('hidden');
-        btn.innerHTML = '☝️ 向上收合 360° 獨立預覽面板';
+        const lang = window._getCurrentLang ? window._getCurrentLang() : 'zh';
+        btn.innerHTML = lang === 'en' ? '☝️ Collapse 360° Preview Panel' : '☝️ 向上收合 360° 獨立預覽面板';
+        if (window._queueLangSync) window._queueLangSync();
         
         if (Viewer3D.getAllScenes().length === 0) {
-            UI.toast('目前尚無場景，您可手動匯入全景圖。', 'info');
+            UI.toast(i18nText('toastNoScenesImport', '目前尚無場景，您可手動匯入全景圖。'), 'info');
         } else {
             Viewer3D.loadFromCurrent();
             scrollToStep('viewer-canvas-wrap', true);
@@ -2084,7 +2118,8 @@
       const btn = Dom.q('#btn-toggle-preview-panel');
       if (body && !body.classList.contains('hidden')) {
         body.classList.add('hidden');
-        btn.innerHTML = '👇 展開 360° 獨立預覽面板';
+        const lang = window._getCurrentLang ? window._getCurrentLang() : 'zh';
+        btn.innerHTML = lang === 'en' ? '👇 Expand 360° Preview Panel' : '👇 展開 360° 獨立預覽面板';
       }
     }
 
@@ -2093,7 +2128,7 @@
           const asset = await AssetService.fromFile(file);
           if (asset.layout !== 'equirectangular_2x1') {
             AppStore.set({ sourceAsset: null, sourceLayout: null, faces: Array(6).fill(null), latestOutput: null, finalEquirect: null, composedCube: null, hasDownloadedFaces: false });
-            throw new Error(`目前流程只接受 2:1 Equirectangular。偵測到：${asset.layout}`);
+            throw new Error(i18nText('errOnly2to1', '目前流程只接受 2:1 Equirectangular。偵測到：') + asset.layout);
           }
           AppStore.set({ sourceAsset: asset, sourceLayout: asset.layout, faces: Array(6).fill(null), latestOutput: null, finalEquirect: null, composedCube: null, hasDownloadedFaces: false, isMainSceneDeleted: false });
           AppStore.commit(`已匯入 2:1 全景圖：${asset.fileName}`);
@@ -2111,10 +2146,10 @@
           if(document.getElementById('app-main')) UI.renderSceneList();
           
           if(!isRestore) {
-              UI.toast('2:1 全景圖匯入成功，請進行六面轉換。', 'success');
+              UI.toast(i18nText('toastSourceImported', '2:1 全景圖匯入成功，請進行六面轉換。'), 'success');
               scrollToStep('step-convert', true);
           }
-        } catch (err) { console.error(err); UI.toast(err.message || '匯入失敗', 'error'); }
+        } catch (err) { console.error(err); UI.toast(err.message || i18nText('errImportFailed', '匯入失敗'), 'error'); }
     }
 
     function renderShell() {
@@ -2366,11 +2401,11 @@
             <div id="scene-manager-panel" class="inner-panel p-6 space-y-5 relative z-10 transition-all duration-300 border-2 border-transparent">
               <div class="flex flex-wrap items-center justify-between gap-4 border-b border-[var(--tw-border-color)] pb-4">
                 <div class="flex items-center gap-3">
-                  <b class="text-[16px] font-extrabold text-[var(--ink)]">場景管理器 (Scene Manager)</b>
-                  <span class="text-[12px] text-[var(--muted)] font-bold hidden sm:inline-block bg-[var(--tw-bg-surface-light)] px-2 py-1 rounded border border-[var(--tw-border-color)]">支援拖曳上傳</span>
+                  <b class="text-[16px] font-extrabold text-[var(--ink)]">Scene Manager</b>
+                  <span class="text-[12px] text-[var(--muted)] font-bold hidden sm:inline-block bg-[var(--tw-bg-surface-light)] px-2 py-1 rounded border border-[var(--tw-border-color)]">Drag & drop supported</span>
                 </div>
                 <label class="btn btn-primary btn-sm shadow-lg cursor-pointer">
-                  + 匯入其他場景
+                  + Add Scene
                   <input type="file" id="input-add-scene" class="hidden" accept="image/jpeg,image/png" multiple>
                 </label>
               </div>
@@ -2391,24 +2426,24 @@
             <div class="mt-8 border border-[var(--glass-border)] rounded-[28px] bg-[var(--chk-bg)] shadow-2xl flex flex-col relative overflow-hidden backdrop-blur-2xl" id="viewer-canvas-wrap">
               <div class="bg-[var(--tw-bg-surface-light)] backdrop-blur-2xl border-b border-[var(--glass-border)] p-5 flex flex-wrap gap-4 items-center justify-between relative z-10">
                 <div class="flex flex-wrap gap-4 items-center">
-                  <label class="checkbox-pill shadow-md"><input id="viewer-seam-guide" type="checkbox">接縫線</label>
+                  <label class="checkbox-pill shadow-md" data-i18n-input="s06seamLine"><input id="viewer-seam-guide" type="checkbox">接縫線</label>
                   <button id="btn-auto-rotate" class="btn btn-neutral btn-sm shadow-md">自動旋轉：關</button>
                   <div class="w-px h-12 bg-[var(--tw-border-color)] hidden sm:block mx-2 shadow-[1px_0_0_rgba(0,0,0,0.5)]"></div>
                   
                   <div class="hidden md:flex flex-col gap-1.5">
-                    <span class="text-[14.5px] text-[var(--muted)] font-bold">💡 雙擊畫面新增「資訊」或「傳送門」。控制項 (歸位、錄影、截圖) 支援全螢幕：</span>
+                    <span class="text-[14.5px] text-[var(--muted)] font-bold" data-i18n-dynamic="s06viewerHint">💡 雙擊畫面新增「資訊」或「傳送門」。控制項 (歸位、錄影、截圖) 支援全螢幕：</span>
                     <div class="flex items-center gap-2 text-[12px] text-[var(--muted)] font-bold">
                       <span class="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-md bg-[var(--tw-bg-surface)] border border-[var(--tw-border-color)] text-[var(--ink)] shadow-sm">
                         <svg class="w-3.5 h-3.5 opacity-80" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6"></path></svg>
-                        視角歸位
+                        <span data-i18n-dynamic="psvHintReset">視角歸位</span>
                       </span>
                       <span class="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-md bg-[var(--tw-bg-surface)] border border-[var(--tw-border-color)] text-[var(--ink)] shadow-sm">
                         <svg class="w-3.5 h-3.5 opacity-80" fill="none" stroke="currentColor" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10" stroke-width="2"></circle><circle cx="12" cy="12" r="4" fill="currentColor"></circle></svg>
-                        錄製影片
+                        <span data-i18n-dynamic="psvHintRecord">錄製影片</span>
                       </span>
                       <span class="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-md bg-[var(--tw-bg-surface)] border border-[var(--tw-border-color)] text-[var(--ink)] shadow-sm">
                         <svg class="w-3.5 h-3.5 opacity-80" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 9a2 2 0 012-2h.93a2 2 0 001.664-.89l.812-1.22A2 2 0 0110.07 4h3.86a2 2 0 011.664.89l.812 1.22A2 2 0 0018.07 7H19a2 2 0 012 2v9a2 2 0 01-2 2H5a2 2 0 01-2-2V9z"></path><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 13a3 3 0 11-6 0 3 3 0 016 0z"></path></svg>
-                        截圖功能
+                        <span data-i18n-dynamic="psvHintScreenshot">截圖功能</span>
                       </span>
                     </div>
                   </div>
@@ -2423,7 +2458,7 @@
                     <div class="flex gap-2 p-1.5 bg-[var(--tw-bg-surface-light)] rounded-xl border border-[var(--tw-border-color)] shadow-inner">
                        <label class="flex-1 text-center py-2 rounded-lg cursor-pointer transition-all has-[:checked]:bg-brand has-[:checked]:text-white text-[13px] font-bold text-[var(--muted)]">
                          <input type="radio" name="hs-type" value="info" class="hidden" checked>
-                         ℹ️ 資訊標籤
+                         ℹ️ Info Label
                        </label>
                        <label class="flex-1 text-center py-2 rounded-lg cursor-pointer transition-all has-[:checked]:bg-brand has-[:checked]:text-white text-[13px] font-bold text-[var(--muted)]">
                          <input type="radio" name="hs-type" value="teleport" class="hidden">
@@ -2486,6 +2521,7 @@
       renderSplitOrientationPreview();
       updateGeneratedPreviewInfo();
       refreshWorkflowStatus();
+      if (window._applyLang) window._applyLang(window._getCurrentLang ? window._getCurrentLang() : 'zh');
     }
 
     function bindDropzone(dropzone, input, onFiles) {
@@ -2520,16 +2556,16 @@
           if (span && label) {
               label.style.pointerEvents = 'none';
               label.style.opacity = '0.7';
-              span.innerHTML = '<span class="loader" style="width:14px;height:14px;border-width:2px;margin-right:6px;"></span>讀取中';
+              span.innerHTML = '<span class="loader" style="width:14px;height:14px;border-width:2px;margin-right:6px;"></span>' + i18nText('loadingRead', '讀取中');
           }
           await new Promise(r => setTimeout(r, 50));
           try {
               await FaceEditor.replaceFace(index, e.target.files[0]);
-              UI.toast(`已成功更新 ${CONFIG.faceLabels[index]}`, 'success');
+              UI.toast(i18nText('toastFaceUpdated', '已成功更新 ') + CONFIG.faceLabels[index], 'success');
           } catch(err) {
               console.error(err);
-              UI.toast(err.message || '更新失敗', 'error');
-              if (span) span.innerHTML = '上傳 / 替換';
+              UI.toast(err.message || i18nText('errUpdateFailed', '更新失敗'), 'error');
+              if (span) span.innerHTML = i18nText('faceUpload', '上傳 / 替換');
               if (label) { label.style.pointerEvents = 'auto'; label.style.opacity = '1'; }
           }
         });
@@ -2549,14 +2585,14 @@
             if (span && label) {
                 label.style.pointerEvents = 'none';
                 label.style.opacity = '0.7';
-                span.innerHTML = '<span class="loader" style="width:14px;height:14px;border-width:2px;margin-right:6px;"></span>讀取中';
+                span.innerHTML = '<span class="loader" style="width:14px;height:14px;border-width:2px;margin-right:6px;"></span>' + i18nText('loadingRead', '讀取中');
             }
             await new Promise(r => setTimeout(r, 50));
             try {
                 await FaceEditor.replaceFace(index, files[0]);
-                UI.toast(`已成功更新 ${CONFIG.faceLabels[index]}`, 'success');
+                UI.toast(i18nText('toastFaceUpdated', '已成功更新 ') + CONFIG.faceLabels[index], 'success');
             } catch(err) {
-                UI.toast(err.message || '更新失敗', 'error');
+                UI.toast(err.message || i18nText('errUpdateFailed', '更新失敗'), 'error');
             }
           }
         });
@@ -2574,7 +2610,11 @@
         const currentTheme = document.documentElement.getAttribute('data-theme') || 'dark';
         const newTheme = currentTheme === 'dark' ? 'light' : 'dark';
         document.documentElement.setAttribute('data-theme', newTheme);
-        Dom.q('#theme-toggle-btn').innerHTML = newTheme === 'dark' ? '☀️ 切換亮色' : '🌙 切換暗色';
+        const lang = window._getCurrentLang ? window._getCurrentLang() : 'zh';
+        const t = lang === 'en'
+          ? { light: '☀️ Light Mode', dark: '🌙 Dark Mode' }
+          : { light: '☀️ 切換亮色', dark: '🌙 切換暗色' };
+        Dom.q('#theme-toggle-btn').innerHTML = newTheme === 'dark' ? t.light : t.dark;
         AppStore.set({ theme: newTheme });
       });
 
@@ -2622,7 +2662,7 @@
       });
       const resetOrientation = () => {
         setSplitOrientationSettings({ yaw: 0, pitch: 0, roll: 0 }, { invalidate: true, render: true });
-        UI.toast('已重置切割朝向。', 'success');
+        UI.toast(i18nText('toastOrientationReset', '已重置切割朝向。'), 'success');
       };
       Dom.q('#btn-reset-split-orientation')?.addEventListener('click', resetOrientation);
       Dom.q('#btn-split-fullscreen-reset')?.addEventListener('click', resetOrientation);
@@ -2631,7 +2671,7 @@
       Dom.q('#btn-fullscreen-preview')?.addEventListener('click', () => {
           const asset = AppStore.state.sourceAsset;
           if (!asset) {
-              UI.toast('請先上傳全景圖', 'warn');
+              UI.toast(i18nText('toastUploadPanoFirst', '請先上傳全景圖'), 'warn');
               return;
           }
           const modal = Dom.q('#seam-fullscreen-modal');
@@ -2674,12 +2714,12 @@
       
       Dom.q('#btn-build-faces').addEventListener('click', async e => {
         const btn = e.currentTarget;
-        UI.setLoading(btn, true, '運算中...');
+        UI.setLoading(btn, true, i18nText('loadingProcessing', '運算中...'));
         try { await FaceEditor.importSourceAsFaces((p) => {
-            btn.innerHTML = `<span class="loader mr-2"></span>運算中 ${p}%`;
+            btn.innerHTML = `<span class="loader mr-2"></span>${i18nText('loadingProcessing', '運算中...').replace('...', '')} ${p}%`;
         }); }
-        catch (err) { console.error(err); UI.toast(err.message || '建立 Face 失敗', 'error'); }
-        finally { UI.setLoading(btn, false, '轉換六面'); }
+        catch (err) { console.error(err); UI.toast(err.message || i18nText('errBuildFacesFailed', '建立 Face 失敗'), 'error'); }
+        finally { UI.setLoading(btn, false, i18nText('s02convert', '轉換六面')); }
       });
 
       bindDropzone(Dom.q('#edited-faces-dropzone'), Dom.q('#edited-faces-files'), async files => {
@@ -2687,10 +2727,10 @@
       });
 
       Dom.q('#btn-download-faces-zip').addEventListener('click', async e => {
-        UI.setLoading(e.currentTarget, true, '下載六面 ZIP');
+        UI.setLoading(e.currentTarget, true, i18nText('s0304dl', '下載六面 ZIP'));
         try { await downloadFacesZip(Dom.q('#face-download-format').value); }
-        catch (err) { console.error(err); UI.toast(err.message || '下載失敗', 'error'); }
-        finally { UI.setLoading(e.currentTarget, false, '↓ 下載六面 ZIP'); }
+        catch (err) { console.error(err); UI.toast(err.message || i18nText('errDownloadFailed', '下載失敗'), 'error'); }
+        finally { UI.setLoading(e.currentTarget, false, i18nText('s0304dl', '↓ 下載六面 ZIP')); }
       });
 
       Dom.q('#btn-clear-faces').addEventListener('click', () => {
@@ -2699,40 +2739,40 @@
         refreshPreviews();
         updateGeneratedPreviewInfo();
         UI.renderSceneList();
-        AppStore.commit('已清空六面槽位');
+        AppStore.commit(i18nText('commitFacesCleared', '已清空六面槽位'));
       });
 
       Dom.q('#btn-merge-to-cube').addEventListener('click', async e => {
         const btn = e.currentTarget;
-        UI.setLoading(btn, true, '運算中...');
+        UI.setLoading(btn, true, i18nText('loadingProcessing', '運算中...'));
         try { 
             await mergeFacesToCube((p) => {
-                btn.innerHTML = `<span class="loader mr-2"></span>運算中 ${p}%`;
+                btn.innerHTML = `<span class="loader mr-2"></span>${i18nText('loadingProcessing', '運算中...').replace('...', '')} ${p}%`;
             }); 
         }
-        catch (err) { console.error(err); UI.toast(err.message || '合併失敗', 'error'); }
-        finally { UI.setLoading(btn, false, '合併 Cube Map'); }
+        catch (err) { console.error(err); UI.toast(err.message || i18nText('errMergeFailed', '合併失敗'), 'error'); }
+        finally { UI.setLoading(btn, false, i18nText('s05merge', '合併 Cube Map')); }
       });
 
       Dom.q('#btn-convert-final-equi').addEventListener('click', async e => {
         const btn = e.currentTarget;
-        UI.setLoading(btn, true, '運算中...');
+        UI.setLoading(btn, true, i18nText('loadingProcessing', '運算中...'));
         try { await convertCubeToFinalEquirect((p) => {
-             btn.innerHTML = `<span class="loader mr-2"></span>運算中 ${p}%`;
+             btn.innerHTML = `<span class="loader mr-2"></span>${i18nText('loadingProcessing', '運算中...').replace('...', '')} ${p}%`;
         }); }
-        catch (err) { console.error(err); UI.toast(err.message || '轉換失敗', 'error'); }
-        finally { UI.setLoading(btn, false, '轉回 2:1'); }
+        catch (err) { console.error(err); UI.toast(err.message || i18nText('errConvertFailed', '轉換失敗'), 'error'); }
+        finally { UI.setLoading(btn, false, i18nText('s05convert', '轉回 2:1')); }
       });
 
       Dom.q('#btn-download-cubemap').addEventListener('click', async () => {
         const cube = AppStore.state.composedCube;
-        if (!cube) return UI.toast('請先合併 Cube Map。', 'error');
+        if (!cube) return UI.toast(i18nText('toastMergeCubeFirst', '請先合併 Cube Map。'), 'error');
         await ExportService.downloadFloatResult(cube, 'edited_cubemap_3x2', Dom.q('#final-format').value);
       });
 
       Dom.q('#btn-download-final-equi').addEventListener('click', async () => {
         const final = AppStore.state.finalEquirect;
-        if (!final) return UI.toast('請先轉回 2:1 全景圖。', 'error');
+        if (!final) return UI.toast(i18nText('toastConvert2to1First', '請先轉回 2:1 全景圖。'), 'error');
         await ExportService.downloadFloatResult(final, 'edited_equirectangular_2x1', Dom.q('#final-format').value);
       });
 
@@ -2740,7 +2780,7 @@
         if (!files || files.length === 0) return;
         const validFiles = files.filter(f => f.type === 'image/jpeg' || f.type === 'image/png');
         if(validFiles.length === 0) {
-             UI.toast('僅支援 JPG 或 PNG 格式', 'warn');
+             UI.toast(i18nText('toastJpgPngOnly', '僅支援 JPG 或 PNG 格式'), 'warn');
              return;
         }
         
@@ -2754,7 +2794,7 @@
         }
         AppStore.set({ additionalScenes: [...AppStore.state.additionalScenes, ...newScenes] });
         UI.renderSceneList();
-        UI.toast(`成功匯入 ${validFiles.length} 個場景`, 'success');
+        UI.toast(i18nText('toastScenesImportedPrefix', '成功匯入 ') + validFiles.length + i18nText('toastScenesImportedSuffix', ' 個場景'), 'success');
         
         // === 新增：自動展開並切換到剛剛上傳的場景 ===
         if (newScenes.length > 0) {
@@ -2845,7 +2885,7 @@
           const input = Dom.q('#share-url-input');
           input.select();
           document.execCommand('copy');
-          UI.toast('網址已複製到剪貼簿！', 'success');
+          UI.toast(i18nText('toastUrlCopied', '網址已複製到剪貼簿！'), 'success');
       });
 
       Dom.q('#btn-close-share')?.addEventListener('click', () => {
@@ -2854,7 +2894,7 @@
 
       Dom.q('#btn-use-sample')?.addEventListener('click', async () => {
           const btn = Dom.q('#btn-use-sample');
-          UI.setLoading(btn, true, '下載範例中...');
+          UI.setLoading(btn, true, i18nText('loadingSample', '下載範例中...'));
           try {
               // 從 GitHub 取得開源的 Three.js 2:1 室內全景範例圖 (具備跨網域存取權限)
               const url = 'https://raw.githubusercontent.com/mrdoob/three.js/master/examples/textures/2294472375_24a3b8ef46_o.jpg';
@@ -2866,14 +2906,14 @@
               await handleSourceFileUpload(file, false);
           } catch (err) {
               console.error(err);
-              UI.toast('無法載入範例圖：' + err.message, 'error');
+              UI.toast(i18nText('errSampleFailed', '無法載入範例圖：') + err.message, 'error');
           } finally {
-              UI.setLoading(btn, false, '✨ 使用範例圖體驗');
+              UI.setLoading(btn, false, i18nText('s01sample', '✨ 使用範例圖體驗'));
           }
       });
 
       Dom.q('#btn-clear-workflow').addEventListener('click', () => {
-          if(confirm('確定要清除所有進度並重置流程嗎？')) {
+          if(confirm(i18nText('confirmReset', '確定要清除所有進度並重置流程嗎？'))) {
               skipUnloadWarning = true;
               DraftDB.clear().then(() => location.reload()).catch(() => location.reload());
           }
@@ -2966,7 +3006,7 @@
       if (!box) return;
       syncSplitOrientationLabels();
       const canvas = renderSplitOrientationCanvas(1200);
-      if (!canvas) { box.innerHTML = '<div class="empty-state"><p>上傳 2:1 後，這裡會顯示切割接縫預覽</p></div>'; return; }
+      if (!canvas) { box.innerHTML = '<div class="empty-state"><p>' + i18nText('splitPreviewAfterUpload', '上傳 2:1 後，這裡會顯示切割接縫預覽') + '</p></div>'; return; }
       box.innerHTML = ''; box.appendChild(canvas);
     }
 
@@ -2986,7 +3026,7 @@
           for (const [index, file] of assigned) {
               await FaceEditor.replaceFace(index, file);
           }
-          UI.toast(`已批次上傳 ${assigned.length} 張六面圖。`, 'success');
+          UI.toast(i18nText('toastBatchUploadedPrefix', '已批次上傳 ') + assigned.length + i18nText('toastBatchUploadedSuffix', ' 張六面圖。'), 'success');
           if (FaceEditor.hasAllFaces()) scrollToStep('step-merge', true);
       } finally {
           if (Dom.q('#edited-faces-dz-content') && originalHTML) {
@@ -3138,7 +3178,7 @@
     }
 
     async function downloadFacesZip(format = 'png') {
-      if (!AppStore.state.faces.some(Boolean)) throw new Error('目前沒有可下載的六面圖。');
+      if (!AppStore.state.faces.some(Boolean)) throw new Error(i18nText('errNoFacesToDownload', '目前沒有可下載的六面圖。'));
       const zip = new JSZip();
       for (let i = 0; i < 6; i++) {
         if (!AppStore.state.faces[i]) continue;
@@ -3165,7 +3205,7 @@
     }
 
     async function mergeFacesToCube(onProgress) {
-      if (!FaceEditor.hasAllFaces()) throw new Error('需要完整六面圖才能合併。');
+      if (!FaceEditor.hasAllFaces()) throw new Error(i18nText('errNeedAllFaces', '需要完整六面圖才能合併。'));
       const cube = await ProjectionEngine.composeFacesToCubemap(AppStore.state.faces, null, onProgress);
       cube.filename = 'edited_cubemap_3x2';
       AppStore.set({ composedCube: cube, latestOutput: cube });
@@ -3173,7 +3213,7 @@
       canvas.className = 'max-w-full rounded-[14px] border border-white/80 shadow-md';
       Dom.q('#cubemap-preview').innerHTML = ''; Dom.q('#cubemap-preview').appendChild(canvas);
       AppStore.commit('已將六面合併為 3x2 Cube Map');
-      UI.toast('Cube Map 合併完成，請轉回 2:1。', 'success');
+      UI.toast(i18nText('toastCubeMerged', 'Cube Map 合併完成，請轉回 2:1。'), 'success');
     }
 
     async function convertCubeToFinalEquirect(onProgress) {
@@ -3193,7 +3233,7 @@
       
       renderFinalPreview(); updateGeneratedPreviewInfo();
       AppStore.commit(`已將 Cube Map 轉回 2:1 全景圖：${final.width}×${final.height}，Seam Blend ${seamBlendPx}px`);
-      UI.toast('最終 2:1 已完成，可載入 360 預覽。', 'success');
+      UI.toast(i18nText('toastFinalReady', '最終 2:1 已完成，可載入 360 預覽。'), 'success');
       
       UI.renderSceneList();
       expandPreviewPanel();
@@ -3205,8 +3245,8 @@
       const cubeBox = Dom.q('#cubemap-preview');
       const finalBox = Dom.q('#final-equi-preview');
       const emptySVG = `<svg class="w-14 h-14 mb-4 opacity-50 mx-auto" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="1.5"><path stroke-linecap="round" stroke-linejoin="round" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"></path></svg>`;
-      if (cubeBox) cubeBox.innerHTML = `<div class="empty-state">${emptySVG}<p>尚未合併</p></div>`;
-      if (finalBox) finalBox.innerHTML = `<div class="empty-state">${emptySVG}<p>尚未轉換</p></div>`;
+      if (cubeBox) cubeBox.innerHTML = `<div class="empty-state">${emptySVG}<p>${i18nText('s05cubeEmpty', '尚未合併')}</p></div>`;
+      if (finalBox) finalBox.innerHTML = `<div class="empty-state">${emptySVG}<p>${i18nText('s05equiEmpty', '尚未轉換')}</p></div>`;
     }
 
     function refreshWorkflowStatus() {
@@ -3238,7 +3278,7 @@
         const hotspotsJson = JSON.stringify(hotspots);
         
         return `<!DOCTYPE html>
-<html lang="zh-TW">
+<html lang="en">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
@@ -3275,7 +3315,7 @@
 <body>
     <div id="loading">
         <div class="spinner mb-4"></div>
-        <div style="margin-top: 16px; font-weight: bold; font-size: 1.1rem; letter-spacing: 1px;">載入 360° 導覽中...</div>
+        <div style="margin-top: 16px; font-weight: bold; font-size: 1.1rem; letter-spacing: 1px;">Loading 360° tour...</div>
     </div>
     <div id="viewer"></div>
 
@@ -3323,18 +3363,18 @@
                 
                 if (hs.type === 'teleport') {
                     const targetScene = SCENES.find(s => s.id === hs.targetSceneId);
-                    const targetName = targetScene ? targetScene.name : '未知場景';
-                    tooltipHtml += \`<div style="font-size:13px; font-weight:800; color:#ff9f0a; margin-bottom:6px; display:flex; align-items:center; gap:6px;"><div style="width:5px; height:12px; background:#ff9f0a; border-radius:2px;"></div> 場景傳送門</div>\`;
+                    const targetName = targetScene ? targetScene.name : 'Unknown Scene';
+                    tooltipHtml += \`<div style="font-size:13px; font-weight:800; color:#ff9f0a; margin-bottom:6px; display:flex; align-items:center; gap:6px;"><div style="width:5px; height:12px; background:#ff9f0a; border-radius:2px;"></div> Scene Portal</div>\`;
                     tooltipHtml += \`<strong style="font-size:18px; font-weight:800; color:#fff; display:block; margin-bottom:16px; word-break:break-all;">\${hs.title || targetName}</strong>\`;
-                    tooltipHtml += \`<button style="box-sizing:border-box; display:block; width:100%; padding:10px 16px; border-radius:12px; font-size:14px; font-weight:700; background:#2c3e50; color:#fff; border:1px solid rgba(255,255,255,0.1); box-shadow:0 4px 12px rgba(0,0,0,0.3); transition:all 0.2s; cursor:pointer;" onclick="window.dispatchEvent(new CustomEvent('trigger-teleport', {detail: '\${hs.targetSceneId}'})); event.stopPropagation();">進入場景 ➔</button>\`;
+                    tooltipHtml += \`<button style="box-sizing:border-box; display:block; width:100%; padding:10px 16px; border-radius:12px; font-size:14px; font-weight:700; background:#2c3e50; color:#fff; border:1px solid rgba(255,255,255,0.1); box-shadow:0 4px 12px rgba(0,0,0,0.3); transition:all 0.2s; cursor:pointer;" onclick="window.dispatchEvent(new CustomEvent('trigger-teleport', {detail: '\${hs.targetSceneId}'})); event.stopPropagation();">Enter Scene ➔</button>\`;
                 } else {
                     if (hs.image) {
                         tooltipHtml += \`<div style="width:100%; height:140px; border-radius:12px; margin-bottom:14px; background-image:url('\${hs.image}'); background-size:cover; background-position:center; box-shadow: 0 4px 12px rgba(0,0,0,0.3);"></div>\`;
                     }
-                    tooltipHtml += \`<div style="font-size:13px; font-weight:800; color:#5e9cff; margin-bottom:6px; display:flex; align-items:center; gap:6px;"><div style="width:5px; height:12px; background:#5e9cff; border-radius:2px;"></div> 資訊標籤</div>\`;
+                    tooltipHtml += \`<div style="font-size:13px; font-weight:800; color:#5e9cff; margin-bottom:6px; display:flex; align-items:center; gap:6px;"><div style="width:5px; height:12px; background:#5e9cff; border-radius:2px;"></div> Info Label</div>\`;
                     tooltipHtml += \`<strong style="font-size:18px; font-weight:800; color:#fff; display:block; word-break:break-all;">\${hs.title}</strong>\`;
                     if (hs.description) tooltipHtml += \`<div style="opacity:0.85; font-size:14.5px; margin-top:8px; white-space:pre-wrap; line-height:1.6; color:#f0f0f5;">\${hs.description}</div>\`;
-                    if (hs.link) tooltipHtml += \`<a href="\${hs.link}" target="_blank" style="color:#5e9cff; text-decoration:underline; font-size:14px; font-weight:700; margin-top:12px; display:inline-block; padding:4px 0;" onpointerdown="event.stopPropagation()">前往連結 ↗</a>\`;
+                    if (hs.link) tooltipHtml += \`<a href="\${hs.link}" target="_blank" style="color:#5e9cff; text-decoration:underline; font-size:14px; font-weight:700; margin-top:12px; display:inline-block; padding:4px 0;" onpointerdown="event.stopPropagation()">Open Link ↗</a>\`;
                 }
 
                 markersPlugin.addMarker({
@@ -3382,10 +3422,10 @@
 
     async function export360WebPackage() {
         const btn = Dom.q('#btn-export-web-pkg');
-        UI.setLoading(btn, true, '打包中...');
+        UI.setLoading(btn, true, i18nText('loadingPackaging', '打包中...'));
         try {
             const scenes = Viewer3D.getAllScenes();
-            if (scenes.length === 0) throw new Error("沒有可匯出的場景");
+            if (scenes.length === 0) throw new Error(i18nText('errNoExportScenes', "沒有可匯出的場景"));
 
             const processedScenes = [];
             for (const sc of scenes) {
@@ -3407,11 +3447,11 @@
             const htmlContent = generateWebPackageHTML(processedScenes, AppStore.state.hotspots);
             const blob = new Blob([htmlContent], { type: 'text/html;charset=utf-8' });
             ExportService.downloadBlob(blob, `vr360_tour_${Date.now()}.html`);
-            UI.toast('網頁導覽包下載完成！', 'success');
+            UI.toast(i18nText('toastWebPackageDone', '網頁導覽包下載完成！'), 'success');
         } catch (err) {
             UI.toast(err.message, 'error');
         } finally {
-            UI.setLoading(btn, false, '一鍵匯出 360 網頁包');
+            UI.setLoading(btn, false, i18nText('s06export', 'Export 360° Web Package'));
         }
     }
 
@@ -3422,16 +3462,16 @@
 
     async function publishTourToCloud() {
         const btn = Dom.q('#btn-share-online');
-        UI.setLoading(btn, true, '發佈中...');
+        UI.setLoading(btn, true, i18nText('loadingPublishing', '發佈中...'));
         try {
             if (!auth || !auth.currentUser) {
                 await initAuth();
             }
-            if (!auth.currentUser) throw new Error("無法取得驗證權限，請稍後再試。");
+            if (!auth.currentUser) throw new Error(i18nText('errAuthFailed', "無法取得驗證權限，請稍後再試。"));
 
             const user = auth.currentUser;
             const scenes = Viewer3D.getAllScenes();
-            if (scenes.length === 0) throw new Error("沒有可發佈的場景");
+            if (scenes.length === 0) throw new Error(i18nText('errNoPublishScenes', "沒有可發佈的場景"));
 
             const processedScenes = [];
             for (const sc of scenes) {
@@ -3488,13 +3528,13 @@
             }
 
             Dom.q('#share-modal').classList.remove('hidden');
-            UI.toast('發佈成功！', 'success');
+            UI.toast(i18nText('toastPublishSuccess', '發佈成功！'), 'success');
 
         } catch (err) {
-            console.error("發佈失敗:", err);
-            UI.toast('發佈失敗: ' + err.message, 'error');
+            console.error("Publish failed:", err);
+            UI.toast(i18nText('toastPublishFailed', '發佈失敗: ') + err.message, 'error');
         } finally {
-            UI.setLoading(btn, false, '發佈到雲端並產生分享網址');
+            UI.setLoading(btn, false, i18nText('s06publish', 'Publish to Cloud & Generate Share URL'));
         }
     }
 
@@ -3502,7 +3542,7 @@
         document.body.innerHTML = `
             <div id="loading-overlay" class="fixed inset-0 bg-[#0b0c10] z-[9999] flex flex-col items-center justify-center transition-opacity duration-500">
                 <div class="w-12 h-12 border-4 border-white/20 border-t-white rounded-full animate-spin mb-6"></div>
-                <div class="text-white font-bold text-lg">載入 360° 導覽中...</div>
+                <div class="text-white font-bold text-lg">Loading 360° tour...</div>
             </div>
             <div id="viewer" class="w-full h-screen"></div>
         `;
@@ -3557,7 +3597,11 @@
                 if (data.theme) {
                     document.documentElement.setAttribute('data-theme', data.theme);
                     AppStore.set({ theme: data.theme });
-                    Dom.q('#theme-toggle-btn').innerHTML = data.theme === 'dark' ? '☀️ 切換亮色' : '🌙 切換暗色';
+                    const lang = window._getCurrentLang ? window._getCurrentLang() : 'zh';
+                    const t = lang === 'en'
+                      ? { light: '☀️ Light Mode', dark: '🌙 Dark Mode' }
+                      : { light: '☀️ 切換亮色', dark: '🌙 切換暗色' };
+                    Dom.q('#theme-toggle-btn').innerHTML = data.theme === 'dark' ? t.light : t.dark;
                 }
                 if (data.splitOrientation) AppStore.set({ splitOrientation: data.splitOrientation });
                 if (data.hotspots) AppStore.set({ hotspots: data.hotspots });
@@ -3583,6 +3627,344 @@
             }
         }
     };
+  </script>
+
+  <script>
+    // ─── Language / i18n System ───────────────────────────────────────────────
+    const TRANSLATIONS = {
+      zh: {
+        themeLight: '☀️ 切換亮色', themeDark: '🌙 切換暗色',
+        langBtn: '🌐 EN', autosaved: '已自動儲存草稿',
+        shareSuccess: '🎉 發佈成功！', shareDesc: '您的 360° 導覽已上傳至雲端。複製以下網址分享給其他人觀看：',
+        copyUrl: '複製網址', close: '關閉', seamCheck: '接縫檢查 (大圖預覽)', closeEsc: '關閉 (Esc)',
+      },
+      en: {
+        themeLight: '☀️ Light Mode', themeDark: '🌙 Dark Mode',
+        langBtn: '🌐 Chinese', autosaved: 'Draft auto-saved',
+        shareSuccess: '🎉 Published!', shareDesc: 'Your 360° tour has been uploaded. Copy the link below to share:',
+        copyUrl: 'Copy URL', close: 'Close', seamCheck: 'Seam Check (Full Preview)', closeEsc: 'Close (Esc)',
+      }
+    };
+
+    const DYNAMIC = {
+      zh: {
+        progressSteps: ['上傳全景圖','轉換六面','下載圖檔','重傳編輯','合併轉換','360° 預覽'],
+        s01heading: '上傳 360 的 2:1 全景圖',
+        s01desc: '此流程固定從 Equirectangular 2:1 開始；系統會拒絕 3×2 Cube Map 作為起點，避免流程分岔。',
+        s01sample: '✨ 使用範例圖體驗', s01reset: '重置流程',
+        s01dropzone: '點擊或拖曳上傳 2:1 Equirectangular 圖',
+        s01dropzoneSub: '建議解析度：4096×2048 或 8192×4096　支援 JPG / PNG / EXR',
+        s02heading: '2:1 全景圖 → 六面圖', s02convert: '轉換六面',
+        s02accordion: '💡 了解更多：Split Orientation (切割朝向)',
+        s02accordionBody: '先調整 Cubemap 的 Front 朝向，再切六面，避免櫃子、門片、Logo 等完整物件剛好落在 face 接縫。',
+        s02yaw: '旋轉', s02pitch: '上下', s02roll: '地平線',
+        s02reset: '重置朝向', s02fullscreen: '全螢幕放大', s02previewEmpty: '接縫預覽會顯示在這裡',
+        s0304heading: '下載編輯與重新上傳六面圖', s0304clear: '清空槽位', s0304dl: '下載六面 ZIP',
+        s0304adv: '⚙️ 進階下載與邊界設定', s0304fmt: '格式', s0304bleed: 'Bleed (邊界)', s0304bleedNone: '無',
+        s0304bleedHint: '設定 Bleed 方便外部修圖避免破邊，重傳時系統會自動裁切。',
+        s0304batchTitle: '批次上傳區',
+        s0304batchDesc: '支援檔名含 Right / Left / Up / Down / Front / Back；無法辨識時依選取順序填滿空缺',
+        faceLoaded: '✓ 已載入', faceEmpty: '空槽', faceWait: '等待上傳',
+        faceUpload: '上傳 / 替換', faceDl: '↓ 下載', faceRot: '旋轉 90°', faceFlipH: '水平翻', faceFlipV: '垂直翻',
+        s05heading: '合併轉換 2:1 全景圖', s05merge: '合併 Cube Map', s05convert: '轉回 2:1',
+        s05adv: '⚙️ 輸出參數設定 (解析度與品質)', s05res: '輸出解析度', s05seam: '接縫混合', s05seamOff: '停用',
+        s05fmt: '輸出格式', s05seamChk: '接縫檢查線', s05cubeLabel: '3×2 Cube Map 預覽', s05dl: '↓ 下載',
+        s05cubeEmpty: '尚未合併', s05equiLabel: '最終 2:1 預覽', s05equiEmpty: '尚未轉換',
+        s06badge: '隨時可用', s06heading: '多場景 360° 預覽與導覽設定',
+        s06desc: '匯入多張全景圖，並透過「場景傳送門」熱點將它們串連成完整導覽。',
+        s06expand: '👇 展開 360° 獨立預覽面板', s06collapse: '☝️ 向上收合 360° 獨立預覽面板',
+        s06scMgr: '場景管理器 (Scene Manager)', s06drag: '支援拖曳上傳', s06addScene: '+ 匯入其他場景',
+        s06export: '一鍵匯出 360 網頁包', s06publish: '發佈到雲端並產生分享網址',
+        s06seamLine: '接縫線', s06autoRotate: '自動旋轉', s06on: '開', s06off: '關',
+        hsTitle: '熱點設定 (Hotspot)', hsInfo: 'ℹ️ 資訊標籤', hsTeleport: '🚪 場景傳送門',
+        hsTgtLabel: '選擇目標場景', hsTitleLabel: '標題 (必填)', hsTitlePlaceholder: '例如：前往廚房...',
+        hsDescLabel: '說明內容 (選填)', hsDescPlaceholder: '輸入詳細介紹...',
+        hsLinkLabel: '超連結網址 (選填)', hsImgPlaceholder: '點擊或拖曳上傳預覽圖 (選填)',
+        hsSave: '儲存', hsDelete: '刪除', hsCancel: '取消', hsRemoveImage: '移除圖片',
+        s06viewerHint: '💡 雙擊畫面新增「資訊」或「傳送門」。控制項 (歸位、錄影、截圖) 支援全螢幕：',
+        psvHintReset: '視角歸位', psvHintRecord: '錄製影片', psvHintScreenshot: '截圖功能',
+        headerDesc: '以 2:1 全景圖為唯一入口，轉換為六面圖進行外部編輯，再合併成 Cube Map、轉回 2:1，最後 360° 預覽驗收與建立互動熱點。',
+        fileLabel: '檔名', sizeLabel: '尺寸',
+        statusReady: '待處理', statusActive: '進行中', statusDone: '完成', statusWarn: '需確認', statusIndependent: '隨時可用',
+        mainSceneName: '主場景 (Step 05 輸出)', sceneListEmpty: '目前尚無場景。請先完成 Step 05，或手動匯入場景。', removeScene: '移除場景',
+        psvResetTitle: '重設視角 (Reset View)', psvRecordTitle: '錄製 12s 影片 (Record Video)', psvScreenshotTitle: '截圖 (Screenshot)',
+        tooltipTeleport: '場景傳送門', tooltipInfo: '資訊標籤', enterScene: '進入場景', openLink: '前往連結', unknownScene: '未知場景', noOtherScenes: '沒有其他場景可選',
+        loadingProcessing: '運算中...', loadingRead: '讀取中', loadingSample: '下載範例中...', loadingPackaging: '打包中...', loadingPublishing: '發佈中...',
+        recordingTitle: '錄製中...', recordingLabel: '錄製中',
+        toastFacesSplit: '已完成六面拆分。', toastMainNotReady: '主場景尚未準備好', toastViewerLoaded: '360° 預覽已載入。',
+        toastLoadPreviewFirst: '請先載入預覽', toastCanvasUnavailable: '無法取得畫面', toastScreenshotFailed: '截圖擷取失敗', toastScreenshotSaved: '當前畫面已儲存',
+        toastRecordingBusy: '正在錄製中，請稍候...', toastAutorotateMissing: '找不到 Autorotate 套件', toastResettingView: '視角歸位中...', toastVideoDone: '影片錄製完成並已自動下載！', toastRecordFailed: '錄製失敗: ',
+        toastUploadImage: '請上傳圖片', toastSelectTargetScene: '請選擇目標傳送場景', toastTitleRequired: '標題不能為空', toastHotspotUpdated: '熱點已更新', toastHotspotAdded: '新增熱點成功！', toastHotspotDeleted: '熱點已刪除',
+        toastNoScenesImport: '目前尚無場景，您可手動匯入全景圖。', errOnly2to1: '目前流程只接受 2:1 Equirectangular。偵測到：', toastSourceImported: '2:1 全景圖匯入成功，請進行六面轉換。', errImportFailed: '匯入失敗',
+        toastFaceUpdated: '已成功更新 ', errUpdateFailed: '更新失敗', toastOrientationReset: '已重置切割朝向。', toastUploadPanoFirst: '請先上傳全景圖',
+        errBuildFacesFailed: '建立 Face 失敗', errDownloadFailed: '下載失敗', commitFacesCleared: '已清空六面槽位', errMergeFailed: '合併失敗', errConvertFailed: '轉換失敗',
+        toastMergeCubeFirst: '請先合併 Cube Map。', toastConvert2to1First: '請先轉回 2:1 全景圖。', toastJpgPngOnly: '僅支援 JPG 或 PNG 格式',
+        toastScenesImportedPrefix: '成功匯入 ', toastScenesImportedSuffix: ' 個場景', toastUrlCopied: '網址已複製到剪貼簿！', errSampleFailed: '無法載入範例圖：', confirmReset: '確定要清除所有進度並重置流程嗎？',
+        splitPreviewAfterUpload: '上傳 2:1 後，這裡會顯示切割接縫預覽', toastBatchUploadedPrefix: '已批次上傳 ', toastBatchUploadedSuffix: ' 張六面圖。',
+        errNoFacesToDownload: '目前沒有可下載的六面圖。', errNeedAllFaces: '需要完整六面圖才能合併。', toastCubeMerged: 'Cube Map 合併完成，請轉回 2:1。', toastFinalReady: '最終 2:1 已完成，可載入 360 預覽。',
+        toastWebPackageDone: '網頁導覽包下載完成！', errNoExportScenes: '沒有可匯出的場景', errAuthFailed: '無法取得驗證權限，請稍後再試。', errNoPublishScenes: '沒有可發佈的場景', toastPublishSuccess: '發佈成功！', toastPublishFailed: '發佈失敗: ',
+      },
+      en: {
+        progressSteps: ['Upload Pano','Split Faces','Download','Re-upload','Merge','360° Preview'],
+        s01heading: 'Upload 360° 2:1 Panorama',
+        s01desc: 'This workflow requires an Equirectangular 2:1 image. 3×2 Cube Maps are rejected to prevent workflow branching.',
+        s01sample: '✨ Try Sample Image', s01reset: 'Reset Workflow',
+        s01dropzone: 'Click or drag & drop a 2:1 Equirectangular image',
+        s01dropzoneSub: 'Recommended: 4096×2048 or 8192×4096 · Supports JPG / PNG / EXR',
+        s02heading: '2:1 Panorama → 6 Faces', s02convert: 'Split to Faces',
+        s02accordion: '💡 Learn more: Split Orientation',
+        s02accordionBody: 'Adjust the Cubemap Front direction before splitting to prevent objects from landing on face seams.',
+        s02yaw: 'Rotate', s02pitch: 'Tilt', s02roll: 'Horizon',
+        s02reset: 'Reset Orientation', s02fullscreen: 'Fullscreen', s02previewEmpty: 'Seam preview will appear here',
+        s0304heading: 'Download, Edit & Re-upload Faces', s0304clear: 'Clear All Slots', s0304dl: 'Download Faces ZIP',
+        s0304adv: '⚙️ Advanced Download & Bleed Settings', s0304fmt: 'Format', s0304bleed: 'Bleed', s0304bleedNone: 'None',
+        s0304bleedHint: 'Bleed prevents edge artifacts during external editing. Cropped automatically on re-upload.',
+        s0304batchTitle: 'Batch Upload Zone',
+        s0304batchDesc: 'Supports filenames with Right / Left / Up / Down / Front / Back; unrecognized files fill empty slots in order',
+        faceLoaded: '✓ Loaded', faceEmpty: 'Empty', faceWait: 'Waiting',
+        faceUpload: 'Upload / Replace', faceDl: '↓ Download', faceRot: 'Rotate 90°', faceFlipH: 'Flip H', faceFlipV: 'Flip V',
+        s05heading: 'Merge & Convert to 2:1 Panorama', s05merge: 'Merge Cube Map', s05convert: 'Convert to 2:1',
+        s05adv: '⚙️ Output Settings (Resolution & Quality)', s05res: 'Output Resolution', s05seam: 'Seam Blend', s05seamOff: 'Disabled',
+        s05fmt: 'Output Format', s05seamChk: 'Seam Guide Lines', s05cubeLabel: '3×2 Cube Map Preview', s05dl: '↓ Download',
+        s05cubeEmpty: 'Not merged yet', s05equiLabel: 'Final 2:1 Preview', s05equiEmpty: 'Not converted yet',
+        s06badge: 'Available', s06heading: 'Multi-Scene 360° Preview & Tour Setup',
+        s06desc: 'Import multiple panoramas and connect them with Teleport hotspots to build a full virtual tour.',
+        s06expand: '👇 Expand 360° Preview Panel', s06collapse: '☝️ Collapse 360° Preview Panel',
+        s06scMgr: 'Scene Manager', s06drag: 'Drag & drop supported', s06addScene: '+ Add Scene',
+        s06export: 'Export 360° Web Package', s06publish: 'Publish to Cloud & Generate Share URL',
+        s06seamLine: 'Seam Guide', s06autoRotate: 'Auto Rotate', s06on: 'On', s06off: 'Off',
+        hsTitle: 'Hotspot Settings', hsInfo: 'ℹ️ Info Label', hsTeleport: '🚪 Scene Portal',
+        hsTgtLabel: 'Select Target Scene', hsTitleLabel: 'Title (required)', hsTitlePlaceholder: 'e.g. Go to Kitchen...',
+        hsDescLabel: 'Description (optional)', hsDescPlaceholder: 'Enter details...',
+        hsLinkLabel: 'URL Link (optional)', hsImgPlaceholder: 'Click or drag to upload preview image (optional)',
+        hsSave: 'Save', hsDelete: 'Delete', hsCancel: 'Cancel', hsRemoveImage: 'Remove image',
+        s06viewerHint: '💡 Double-click the viewer to add an Info Label or Scene Portal. Controls (Reset, Record, Screenshot) support fullscreen:',
+        psvHintReset: 'Reset View', psvHintRecord: 'Record Video', psvHintScreenshot: 'Screenshot',
+        headerDesc: 'Single entry via 2:1 Equirectangular. Convert to 6 cube faces for external editing, merge to Cube Map, convert to 2:1, then preview in 360° and add interactive hotspots.',
+        fileLabel: 'File', sizeLabel: 'Size',
+        statusReady: 'Pending', statusActive: 'In Progress', statusDone: 'Done', statusWarn: 'Needs Review', statusIndependent: 'Available',
+        mainSceneName: 'Main Scene (Step 05 Output)', sceneListEmpty: 'No scenes yet. Complete Step 05 or import scenes manually.', removeScene: 'Remove scene',
+        psvResetTitle: 'Reset View', psvRecordTitle: 'Record 12s Video', psvScreenshotTitle: 'Screenshot',
+        tooltipTeleport: 'Scene Portal', tooltipInfo: 'Info Label', enterScene: 'Enter Scene', openLink: 'Open Link', unknownScene: 'Unknown Scene', noOtherScenes: 'No other scenes available',
+        loadingProcessing: 'Processing...', loadingRead: 'Loading', loadingSample: 'Downloading sample...', loadingPackaging: 'Packaging...', loadingPublishing: 'Publishing...',
+        recordingTitle: 'Recording...', recordingLabel: 'Recording',
+        toastFacesSplit: 'Faces split complete.', toastMainNotReady: 'Main scene is not ready yet.', toastViewerLoaded: '360° preview loaded.',
+        toastLoadPreviewFirst: 'Load the preview first.', toastCanvasUnavailable: 'Unable to access the canvas.', toastScreenshotFailed: 'Screenshot capture failed.', toastScreenshotSaved: 'Current view saved.',
+        toastRecordingBusy: 'Recording is already in progress. Please wait...', toastAutorotateMissing: 'Autorotate plugin not found.', toastResettingView: 'Resetting view...', toastVideoDone: 'Video recorded and downloaded.', toastRecordFailed: 'Recording failed: ',
+        toastUploadImage: 'Please upload an image.', toastSelectTargetScene: 'Select a target scene.', toastTitleRequired: 'Title is required.', toastHotspotUpdated: 'Hotspot updated.', toastHotspotAdded: 'Hotspot added.', toastHotspotDeleted: 'Hotspot deleted.',
+        toastNoScenesImport: 'No scenes yet. You can import panorama images manually.', errOnly2to1: 'This workflow only accepts 2:1 Equirectangular images. Detected: ', toastSourceImported: '2:1 panorama imported. Continue to split faces.', errImportFailed: 'Import failed',
+        toastFaceUpdated: 'Updated ', errUpdateFailed: 'Update failed', toastOrientationReset: 'Split orientation reset.', toastUploadPanoFirst: 'Upload a panorama first.',
+        errBuildFacesFailed: 'Failed to build faces', errDownloadFailed: 'Download failed', commitFacesCleared: 'Cleared all face slots', errMergeFailed: 'Merge failed', errConvertFailed: 'Conversion failed',
+        toastMergeCubeFirst: 'Merge the Cube Map first.', toastConvert2to1First: 'Convert back to a 2:1 panorama first.', toastJpgPngOnly: 'Only JPG or PNG files are supported.',
+        toastScenesImportedPrefix: 'Imported ', toastScenesImportedSuffix: ' scenes', toastUrlCopied: 'URL copied to clipboard.', errSampleFailed: 'Unable to load sample image: ', confirmReset: 'Clear all progress and reset the workflow?',
+        splitPreviewAfterUpload: 'Upload a 2:1 image to preview split seams here', toastBatchUploadedPrefix: 'Batch uploaded ', toastBatchUploadedSuffix: ' face images.',
+        errNoFacesToDownload: 'There are no faces to download.', errNeedAllFaces: 'All six faces are required before merging.', toastCubeMerged: 'Cube Map merged. Convert it back to 2:1.', toastFinalReady: 'Final 2:1 image is ready for 360° preview.',
+        toastWebPackageDone: 'Web tour package downloaded.', errNoExportScenes: 'No scenes available to export', errAuthFailed: 'Unable to authenticate. Please try again later.', errNoPublishScenes: 'No scenes available to publish', toastPublishSuccess: 'Published successfully.', toastPublishFailed: 'Publish failed: ',
+      }
+    };
+
+    let _lang = localStorage.getItem('mkvs360-lang') || 'zh';
+
+    function _set(el, text) { if (el) el.textContent = text; }
+    function _keepSvg(el, text) {
+      if (!el) return;
+      const svg = el.querySelector('svg');
+      el.textContent = text;
+      if (svg) el.prepend(svg);
+    }
+    function _keepInput(el, text) {
+      if (!el) return;
+      const inp = el.querySelector('input');
+      el.textContent = text;
+      if (inp) el.prepend(inp);
+    }
+
+    function syncStep06I18n(d) {
+      _set(document.querySelector('#scene-manager-panel .flex.items-center.gap-3 b'), d.s06scMgr);
+      _set(document.querySelector('#scene-manager-panel .hidden.sm\\:inline-block'), d.s06drag);
+      const addLbl = document.getElementById('input-add-scene')?.closest('label');
+      _keepInput(addLbl, d.s06addScene);
+      _keepSvg(document.getElementById('btn-export-web-pkg'), d.s06export);
+      _keepSvg(document.getElementById('btn-share-online'), d.s06publish);
+
+      document.querySelectorAll('[data-i18n-dynamic]').forEach(el => {
+        const key = el.dataset.i18nDynamic;
+        if (d[key] !== undefined) _set(el, d[key]);
+      });
+
+      const seamLabel = document.getElementById('viewer-seam-guide')?.closest('.checkbox-pill');
+      _keepInput(seamLabel, d.s06seamLine);
+
+      const arBtn = document.getElementById('btn-auto-rotate');
+      if (arBtn) {
+        const on = arBtn.classList.contains('is-active') || /開|On/i.test(arBtn.textContent);
+        arBtn.textContent = d.s06AutoRotateText || (d.s06autoRotate + ': ' + (on ? d.s06on : d.s06off));
+      }
+
+      const removeImgBtn = document.getElementById('hs-btn-remove-img');
+      if (removeImgBtn) removeImgBtn.title = d.hsRemoveImage || 'Remove image';
+
+      _set(document.querySelector('#hotspot-modal h3'), d.hsTitle);
+      document.querySelectorAll('#hotspot-modal input[name="hs-type"]').forEach(input => {
+        const label = input.closest('label');
+        if (!label) return;
+        _keepInput(label, input.value === 'teleport' ? d.hsTeleport : d.hsInfo);
+      });
+      _set(document.querySelector('#hs-teleport-fields label'), d.hsTgtLabel);
+      _set(document.querySelector('#hotspot-modal .space-y-5 > .w-full:not(#hs-teleport-fields) > label'), d.hsTitleLabel);
+      const titleInput = document.getElementById('hs-input-title');
+      if (titleInput) titleInput.placeholder = d.hsTitlePlaceholder;
+      _set(document.querySelector('#hs-info-fields .w-full:first-child label'), d.hsDescLabel);
+      const descInput = document.getElementById('hs-input-desc');
+      if (descInput) descInput.placeholder = d.hsDescPlaceholder;
+      _set(document.querySelector('#hs-info-fields .w-full:nth-child(2) label'), d.hsLinkLabel);
+      _set(document.querySelector('#hs-img-placeholder span'), d.hsImgPlaceholder);
+      _set(document.getElementById('hs-btn-save'), d.hsSave);
+      _set(document.getElementById('hs-btn-delete'), d.hsDelete);
+      _set(document.getElementById('hs-btn-cancel'), d.hsCancel);
+
+      const psvRoot = window.Viewer3D?.viewer?.container || document.getElementById('viewer-canvas');
+      psvRoot?.querySelector('.psv-button--reset')?.setAttribute('title', d.psvResetTitle || 'Reset View');
+      psvRoot?.querySelector('.psv-button--record')?.setAttribute('title', d.psvRecordTitle || 'Record 12s Video');
+      psvRoot?.querySelector('.psv-button--screenshot')?.setAttribute('title', d.psvScreenshotTitle || 'Screenshot');
+    }
+
+    function applyStaticI18n(lang) {
+      const t = TRANSLATIONS[lang];
+      document.querySelectorAll('[data-i18n]').forEach(el => {
+        const k = el.dataset.i18n;
+        if (t[k] !== undefined) el.textContent = t[k];
+      });
+      const thBtn = document.getElementById('theme-toggle-btn');
+      if (thBtn) {
+        const dark = document.documentElement.getAttribute('data-theme') === 'dark';
+        thBtn.innerHTML = dark ? t.themeLight : t.themeDark;
+      }
+      const lBtn = document.getElementById('lang-toggle-btn');
+      if (lBtn) lBtn.innerHTML = t.langBtn;
+    }
+
+    function applyDynamicI18n(lang) {
+      const d = DYNAMIC[lang];
+
+      document.querySelectorAll('.pnav-label').forEach((el, i) => {
+        if (d.progressSteps[i]) {
+          _set(el, d.progressSteps[i]);
+          const btn = el.closest('.pnav-btn');
+          if (btn) btn.title = d.progressSteps[i];
+        }
+      });
+
+      const appDesc = document.querySelector('.app-header > div > p');
+      _set(appDesc, d.headerDesc);
+
+      _set(document.querySelector('#step-upload .step-heading'), d.s01heading);
+      _set(document.querySelector('#step-upload > .step-header .step-desc'), d.s01desc);
+      _set(document.getElementById('btn-use-sample'), d.s01sample);
+      _set(document.getElementById('btn-clear-workflow'), d.s01reset);
+      _set(document.querySelector('#source-dropzone b'), d.s01dropzone);
+      _set(document.querySelector('#source-dropzone .step-desc'), d.s01dropzoneSub);
+
+      _set(document.querySelector('#step-convert .step-heading'), d.s02heading);
+      const s02btn = document.getElementById('btn-build-faces');
+      if (s02btn && !s02btn.disabled) _set(s02btn, d.s02convert);
+      _set(document.querySelector('#step-convert details summary'), d.s02accordion);
+      _set(document.querySelector('#step-convert details p'), d.s02accordionBody);
+      const rrows = document.querySelectorAll('#step-convert .range-row');
+      [d.s02yaw, d.s02pitch, d.s02roll].forEach((sub, i) => {
+        const el = rrows[i] && rrows[i].querySelector('label span:last-child');
+        _set(el, sub);
+      });
+      _set(document.getElementById('btn-reset-split-orientation'), d.s02reset);
+      _keepSvg(document.getElementById('btn-fullscreen-preview'), d.s02fullscreen);
+      _set(document.querySelector('#split-orientation-preview .empty-state p'), d.s02previewEmpty);
+
+      _set(document.querySelector('#step-faces-io .step-heading'), d.s0304heading);
+      _set(document.getElementById('btn-clear-faces'), d.s0304clear);
+      _keepSvg(document.getElementById('btn-download-faces-zip'), d.s0304dl);
+      _set(document.querySelector('#step-faces-io details summary'), d.s0304adv);
+      const fioL = document.querySelectorAll('#step-faces-io .settings-body .control-label');
+      _set(fioL[0], d.s0304fmt); _set(fioL[1], d.s0304bleed);
+      const bleedNone = document.querySelector('#face-bleed-px option[value="0"]');
+      _set(bleedNone, d.s0304bleedNone);
+      _set(document.querySelector('#step-faces-io .settings-body p'), d.s0304bleedHint);
+      _set(document.querySelector('#edited-faces-dz-content b'), d.s0304batchTitle);
+      _set(document.querySelector('#edited-faces-dz-content .step-desc'), d.s0304batchDesc);
+
+      document.querySelectorAll('.face-card').forEach(card => {
+        const badge = card.querySelector('.face-card-header span:last-child');
+        if (badge) badge.textContent = badge.textContent.includes('✓') ? d.faceLoaded : d.faceEmpty;
+        card.querySelectorAll('[id^="face-btn-text-"]').forEach(s => _set(s, d.faceUpload));
+        card.querySelectorAll('button.face-download').forEach(b => _set(b, d.faceDl));
+        card.querySelectorAll('[data-action="rotate"]').forEach(b => _set(b, d.faceRot));
+        card.querySelectorAll('[data-action="flipH"]').forEach(b => _set(b, d.faceFlipH));
+        card.querySelectorAll('[data-action="flipV"]').forEach(b => _set(b, d.faceFlipV));
+        card.querySelectorAll('div[style*="position:absolute"] div').forEach(el => {
+          if (!el.children.length && (el.textContent === '等待上傳' || el.textContent === 'Waiting')) _set(el, d.faceWait);
+        });
+      });
+
+      _set(document.querySelector('#step-merge .step-heading'), d.s05heading);
+      _set(document.getElementById('btn-merge-to-cube'), d.s05merge);
+      _set(document.getElementById('btn-convert-final-equi'), d.s05convert);
+      _set(document.querySelector('#step-merge details summary'), d.s05adv);
+      const mL = document.querySelectorAll('#step-merge .settings-body .control-label');
+      _set(mL[0], d.s05res); _set(mL[1], d.s05seam); _set(mL[2], d.s05fmt);
+      _set(document.querySelector('#seam-blend-px option[value="0"]'), d.s05seamOff);
+      const seamPill = document.querySelector('#step-merge .checkbox-pill');
+      _keepInput(seamPill, d.s05seamChk);
+      const panels = document.querySelectorAll('#step-merge .inner-panel');
+      if (panels[0]) _set(panels[0].querySelector('b'), d.s05cubeLabel);
+      _set(document.getElementById('btn-download-cubemap'), d.s05dl);
+      _set(document.querySelector('#cubemap-preview .empty-state p'), d.s05cubeEmpty);
+      if (panels[1]) _set(panels[1].querySelector('b'), d.s05equiLabel);
+      _set(document.querySelector('#final-equi-preview .empty-state p'), d.s05equiEmpty);
+
+      _set(document.querySelector('[data-step-status="preview"]'), d.s06badge);
+      _set(document.querySelector('#step-preview .step-heading'), d.s06heading);
+      _set(document.querySelector('#step-preview > .step-header .step-desc'), d.s06desc);
+      const togBtn = document.getElementById('btn-toggle-preview-panel');
+      if (togBtn) {
+        const body = document.getElementById('preview-panel-body');
+        togBtn.textContent = (body && body.classList.contains('hidden')) ? d.s06expand : d.s06collapse;
+      }
+      syncStep06I18n(d);
+    }
+
+    function applyLang(lang) {
+      _lang = lang;
+      localStorage.setItem('mkvs360-lang', lang);
+      document.documentElement.lang = lang === 'en' ? 'en' : 'zh-TW';
+      applyStaticI18n(lang);
+      applyDynamicI18n(lang);
+    }
+
+    window._applyLang = applyLang;
+    window._getCurrentLang = () => _lang;
+    window._getDynamicI18n = () => DYNAMIC[_lang] || DYNAMIC.zh;
+    window._i18nText = (key, fallback = '') => {
+      const dyn = DYNAMIC[_lang] || DYNAMIC.zh;
+      const stat = TRANSLATIONS[_lang] || TRANSLATIONS.zh;
+      return dyn[key] ?? stat[key] ?? fallback;
+    };
+
+    document.addEventListener('DOMContentLoaded', () => {
+      document.getElementById('lang-toggle-btn')?.addEventListener('click', () => {
+        applyLang(_lang === 'zh' ? 'en' : 'zh');
+        setTimeout(() => applyLang(_lang), 0);
+      });
+      applyLang(_lang);
+      let syncQueued = false;
+      const queueLangSync = () => {
+        if (syncQueued) return;
+        syncQueued = true;
+        requestAnimationFrame(() => {
+          syncQueued = false;
+          applyLang(_lang);
+        });
+      };
+      window._queueLangSync = queueLangSync;
+    });
   </script>
 </body>
 </html>
