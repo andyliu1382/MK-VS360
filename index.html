@@ -748,7 +748,7 @@
         const val = (x, y, c) => src[(Math.max(0, Math.min(height - 1, y)) * width + ((x % width) + width) % width) * 4 + c];
         for (let c = 0; c < 4; c++) {
           const c00 = val(x0, y0, c), c10 = val(x1, y0, c), c01 = val(x0, y1, c), c11 = val(x1, y1, c);
-          out[outIdx + c] = c00 * (1 - wx) * (1 - wy) + c01 * (1 - wx) * wy + c11 * wx * wy;
+          out[outIdx + c] = c00 * (1 - wx) * (1 - wy) + c10 * wx * (1 - wy) + c01 * (1 - wx) * wy + c11 * wx * wy;
         }
       }
       function sampleBilinearRect(src, width, height, px, py, minX, minY, maxX, maxY, out, outIdx) {
