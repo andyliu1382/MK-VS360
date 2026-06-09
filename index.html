@@ -1549,11 +1549,11 @@
             this.viewer.addEventListener('ready', () => {
                this.updateMarkersForCurrentScene();
                const modal = Dom.q('#hotspot-modal');
-               if (modal) {
+               if (modal && !modal.dataset.eventsBound) {
                    ['pointerdown', 'mousedown', 'touchstart', 'click', 'dblclick', 'wheel'].forEach(ev => {
                        modal.addEventListener(ev, e => e.stopPropagation());
                    });
-                   this.viewer.container.appendChild(modal);
+                   modal.dataset.eventsBound = 'true';
                }
             }, { once: true });
 
@@ -3197,6 +3197,7 @@
       
       UI.renderSceneList();
       expandPreviewPanel();
+      Viewer3D.switchScene('main');
       scrollToStep('step-preview', true);
     }
 
