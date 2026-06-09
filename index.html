@@ -975,7 +975,8 @@
         additionalScenes: [],
         splitOrientation: { yaw: 0, pitch: 0, roll: 0 },
         hotspots: [],
-        history: []
+        history: [],
+        isMainSceneDeleted: false
       },
       set(patch) { 
           Object.assign(this.state, patch); 
@@ -1009,7 +1010,8 @@
                 } : null),
                 splitOrientation: state.splitOrientation,
                 hotspots: state.hotspots,
-                additionalScenes: state.additionalScenes.map(s => ({ id: s.id, name: s.name, file: s.file }))
+                additionalScenes: state.additionalScenes.map(s => ({ id: s.id, name: s.name, file: s.file })),
+                isMainSceneDeleted: state.isMainSceneDeleted
             };
             try {
                 await DraftDB.set('workspace', snapshot);
@@ -1458,7 +1460,7 @@
 
       getAllScenes() {
         const scenes = [];
-        const hasMain = AppStore.state.finalEquirect || AppStore.state.composedCube || AppStore.state.sourceAsset;
+        const hasMain = !AppStore.state.isMainSceneDeleted && (AppStore.state.finalEquirect || AppStore.state.composedCube || AppStore.state.sourceAsset);
         if (hasMain) scenes.push({ id: 'main', name: '主場景 (Step 05 輸出)', isMain: true });
         if (AppStore.state.additionalScenes) scenes.push(...AppStore.state.additionalScenes);
         return scenes;
@@ -1475,7 +1477,13 @@
         const scenes = this.getAllScenes();
         const target = scenes.find(s => s.id === sceneId) || scenes[0];
         if (!target) {
-           UI.toast('沒有可預覽的素材，請先匯入或產出 2:1 全景圖。', 'error');
+           if (this.viewer) {
+               try { this.viewer.destroy(); } catch(e){}
+               this.viewer = null;
+               this.currentUrl = null;
+           }
+           container.innerHTML = '';
+           if(document.getElementById('app-main')) UI.renderSceneList();
            return;
         }
 
@@ -2002,8 +2010,9 @@
                 <span class="font-bold text-[14px] truncate max-w-[140px]">${s.name}</span>
                 ${s.isMain 
                   ? '<span class="text-[10px] font-extrabold bg-black/30 px-1.5 py-0.5 rounded text-white/90 uppercase tracking-wider ml-1">Main</span>' 
-                  : `<button class="delete-scene ml-2 w-5 h-5 flex items-center justify-center rounded-full bg-black/20 hover:bg-red-500 hover:text-white transition-colors" data-scene-id="${s.id}" title="移除場景">✕</button>`
+                  : ''
                 }
+                <button class="delete-scene ml-auto shrink-0 w-5 h-5 flex items-center justify-center rounded-full bg-black/20 hover:bg-red-500 hover:text-white transition-colors" data-scene-id="${s.id}" title="移除場景">✕</button>
               </div>
             `;
         }).join('');
@@ -2020,12 +2029,36 @@
         Dom.qa('.delete-scene').forEach(btn => {
            btn.addEventListener('click', (e) => {
               const id = btn.dataset.sceneId;
-              AppStore.set({ 
-                  additionalScenes: AppStore.state.additionalScenes.filter(s => s.id !== id),
+              
+              if (id === 'main') {
+                  AppStore.set({ isMainSceneDeleted: true });
+              } else {
+                  AppStore.set({ 
+                      additionalScenes: AppStore.state.additionalScenes.filter(s => s.id !== id)
+                  });
+              }
+              
+              // 同步刪除與此場景相關的熱點
+              AppStore.set({
                   hotspots: AppStore.state.hotspots.filter(h => h.sceneId !== id && h.targetSceneId !== id) 
               });
-              if (Viewer3D.currentSceneId === id) Viewer3D.switchScene('main');
-              else UI.renderSceneList();
+              
+              if (Viewer3D.currentSceneId === id) {
+                  const remainingScenes = Viewer3D.getAllScenes();
+                  if (remainingScenes.length > 0) {
+                      Viewer3D.switchScene(remainingScenes[0].id);
+                  } else {
+                      if (Viewer3D.viewer) {
+                          try { Viewer3D.viewer.destroy(); } catch(e){}
+                          Viewer3D.viewer = null;
+                          Viewer3D.currentUrl = null;
+                      }
+                      Dom.q('#viewer-canvas').innerHTML = '';
+                      UI.renderSceneList();
+                  }
+              } else {
+                  UI.renderSceneList();
+              }
            });
         });
     };
@@ -2062,7 +2095,7 @@
             AppStore.set({ sourceAsset: null, sourceLayout: null, faces: Array(6).fill(null), latestOutput: null, finalEquirect: null, composedCube: null, hasDownloadedFaces: false });
             throw new Error(`目前流程只接受 2:1 Equirectangular。偵測到：${asset.layout}`);
           }
-          AppStore.set({ sourceAsset: asset, sourceLayout: asset.layout, faces: Array(6).fill(null), latestOutput: null, finalEquirect: null, composedCube: null, hasDownloadedFaces: false });
+          AppStore.set({ sourceAsset: asset, sourceLayout: asset.layout, faces: Array(6).fill(null), latestOutput: null, finalEquirect: null, composedCube: null, hasDownloadedFaces: false, isMainSceneDeleted: false });
           AppStore.commit(`已匯入 2:1 全景圖：${asset.fileName}`);
           
           const preview = ColorPipeline.assetToPreviewCanvas(asset);
@@ -3156,7 +3189,7 @@
       
       const final = await ProjectionEngine.cubemapToEquirect(cube, res, { seamBlendPx, onProgress });
       final.filename = 'edited_equirectangular_2x1';
-      AppStore.set({ finalEquirect: final, latestOutput: final });
+      AppStore.set({ finalEquirect: final, latestOutput: final, isMainSceneDeleted: false });
       
       renderFinalPreview(); updateGeneratedPreviewInfo();
       AppStore.commit(`已將 Cube Map 轉回 2:1 全景圖：${final.width}×${final.height}，Seam Blend ${seamBlendPx}px`);
@@ -3527,6 +3560,7 @@
                 }
                 if (data.splitOrientation) AppStore.set({ splitOrientation: data.splitOrientation });
                 if (data.hotspots) AppStore.set({ hotspots: data.hotspots });
+                if (data.isMainSceneDeleted !== undefined) AppStore.set({ isMainSceneDeleted: data.isMainSceneDeleted });
             }
         } catch(e) {
             console.warn("無法恢復草稿", e);
