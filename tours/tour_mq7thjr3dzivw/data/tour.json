@@ -1,0 +1,42 @@
+{
+  "tourId": "tour_mq7thjr3dzivw",
+  "scenes": [
+    {
+      "id": "scene_1781080728328mfrvk",
+      "name": "260527_360Test_8k",
+      "url": "assets/scene_1781080728328mfrvk.png"
+    },
+    {
+      "id": "scene_1781080736129436z0",
+      "name": "J00_44-ENTRANCE01_edit",
+      "url": "assets/scene_1781080736129436z0.png"
+    },
+    {
+      "id": "scene_1781080736129v5pi2",
+      "name": "J01_21-ENTRANCE02",
+      "url": "assets/scene_1781080736129v5pi2.png"
+    },
+    {
+      "id": "scene_17810807361296gmtk",
+      "name": "J02_14-VR",
+      "url": "assets/scene_17810807361296gmtk.png"
+    },
+    {
+      "id": "scene_17810807361292qrmb",
+      "name": "J03_35-MID",
+      "url": "assets/scene_17810807361292qrmb.png"
+    },
+    {
+      "id": "scene_1781080736129ks92a",
+      "name": "J04_20-RIGHT",
+      "url": "assets/scene_1781080736129ks92a.png"
+    },
+    {
+      "id": "scene_1781080736129whbja",
+      "name": "J05_02-STORE",
+      "url": "assets/scene_1781080736129whbja.png"
+    }
+  ],
+  "hotspots": [],
+  "createdAt": "2026-06-10T08:39:01.696Z"
+}
